@@ -1,32 +1,32 @@
-import { ConfigProvider, Layout, Typography, Space, Tag, theme, Alert } from 'antd';
+/**
+ * Root app layout.
+ *
+ * App is now a pure layout component rendered as the parent of a React Router
+ * `<Route>` tree: it renders the Header (brand + language switcher) and a
+ * Content area whose body is `<Outlet/>` (the matched child route), with the
+ * project-wide risk disclaimer pinned below the page content. Page-specific
+ * content is supplied by routes in `main.tsx`.
+ *
+ * Ant Design `ConfigProvider.locale` is bound to the active i18n language so
+ * antd's built-in copy (pagination, date pickers, Empty, …) follows the user's
+ * language, and `dayjs` locale is switched in lockstep so locale-aware date
+ * rendering stays consistent.
+ */
+import { ConfigProvider, Layout, Typography, Tag, theme, Alert } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
-import { LinkOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import type { ReactNode } from 'react';
+import { Outlet } from 'react-router-dom';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useLanguage } from '@/i18n/useLanguage';
 
 const { Header, Content, Footer } = Layout;
-const { Title, Paragraph, Text } = Typography;
+const { Title } = Typography;
 
-interface AppProps {
-  /** Optional page content rendered inside the layout, sharing ConfigProvider. */
-  children?: ReactNode;
-}
-
-/**
- * Root app component.
- *
- * The Ant Design `ConfigProvider.locale` is bound to the active i18n language
- * so antd's built-in copy (pagination, date pickers, etc.) and date formatting
- * follow the user's language. `dayjs` locale is switched in lockstep so any
- * locale-aware date rendering stays consistent.
- */
-function App({ children }: AppProps = {}) {
+function App() {
   const { t } = useTranslation();
   const { language } = useLanguage();
 
@@ -39,8 +39,6 @@ function App({ children }: AppProps = {}) {
   } else {
     dayjs.locale('en');
   }
-
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
   return (
     <ConfigProvider
@@ -66,49 +64,22 @@ function App({ children }: AppProps = {}) {
             {t('common:appName')}
           </Title>
           <Tag color="blue">{t('common:version')}</Tag>
-          <Tag color="default">{t('dashboard:scaffolding.tag')}</Tag>
           <div style={{ marginLeft: 'auto' }}>
             <LanguageSwitcher />
           </div>
         </Header>
 
         <Content style={{ padding: '48px 24px' }}>
-          <div style={{ maxWidth: 960, margin: '0 auto' }}>
-            <Title level={2}>{t('dashboard:welcome.title')}</Title>
-            <Paragraph>
-              <Text>{t('dashboard:welcome.intro')}</Text>
-            </Paragraph>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <Outlet />
 
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <Paragraph>
-                <ul>
-                  <li>
-                    <Text strong>{t('dashboard:scaffolding.backendApi')}:</Text>{' '}
-                    <a href={apiBaseUrl}>
-                      {apiBaseUrl}
-                    </a>{' '}
-                    <LinkOutlined />
-                  </li>
-                  <li>
-                    <Text strong>{t('dashboard:scaffolding.apiDocs')}:</Text>{' '}
-                    <a href={`${apiBaseUrl}/docs`}>/docs</a>
-                  </li>
-                  <li>
-                    <Text strong>{t('dashboard:scaffolding.healthProbe')}:</Text>{' '}
-                    <a href={`${apiBaseUrl}/health`}>/health</a>
-                  </li>
-                </ul>
-              </Paragraph>
-
-              <Alert
-                type="warning"
-                showIcon
-                message={t('common:disclaimer.title')}
-                description={t('common:disclaimer.body')}
-              />
-
-              {children}
-            </Space>
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginTop: 32 }}
+              message={t('common:disclaimer.title')}
+              description={t('common:disclaimer.body')}
+            />
           </div>
         </Content>
 

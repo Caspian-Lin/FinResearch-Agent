@@ -23,6 +23,7 @@ const errors = {
   assetNotFound: '未找到该资产。',
   ohlcvSyncFailed: '同步该标的的 OHLCV 数据失败。',
   watchlistLimitReached: '观察列表条数已达上限。',
+  watchlistNameExists: '已存在同名自选股。',
   backtestFailed: '回测执行失败,请检查参数后重试。',
 } as const;
 

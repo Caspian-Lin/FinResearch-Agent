@@ -1,17 +1,21 @@
 /**
  * Tests that Ant Design's built-in component copy follows the active language.
  *
- * Strategy: render `App` (which wraps content in `ConfigProvider` bound to the
- * i18n language) with an antd `Empty` passed as children. `Empty`'s default
- * description is locale-dependent: "No data" (en) vs "暂无数据" (zh-CN).
- * Switching language via the App's `LanguageSwitcher` updates antd locale
- * instantly (no reload).
+ * App is now a React Router layout route (it renders `<Outlet/>`), so we mount
+ * it inside a `MemoryRouter` + `<Routes>` and feed an antd `Empty` through the
+ * child route's element. `Empty`'s default description is locale-dependent:
+ * "No data" (en) vs "暂无数据" (zh-CN). Switching language via the App's
+ * `LanguageSwitcher` updates antd locale instantly (no reload).
+ *
+ * Language assertions use locale-distinct copy that only exists in one
+ * language at a time: the disclaimer title (`Important Disclaimer` vs
+ * `重要免责声明`) and antd's `Empty` description.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Empty } from 'antd';
-import type { ReactNode } from 'react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 import App from '@/App';
 import i18n from '../index';
@@ -21,12 +25,22 @@ beforeEach(async () => {
   await i18n.changeLanguage('en');
 });
 
-function renderApp(children?: ReactNode) {
-  return render(<App>{children}</App>);
+/** Render App as a layout route whose child route renders `node`. */
+function renderAppWith(node: React.ReactNode) {
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route element={<App />}>
+          <Route path="/" element={node} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
 }
 
 async function switchLanguageViaUI(user: ReturnType<typeof userEvent.setup>, label: string) {
   const selectors = document.querySelectorAll('.ant-select-selector');
+  // The language switcher is the last Select in the header.
   const appSelect = selectors[selectors.length - 1] as HTMLElement;
   await act(async () => {
     await user.click(appSelect);
@@ -38,17 +52,17 @@ async function switchLanguageViaUI(user: ReturnType<typeof userEvent.setup>, lab
 }
 
 describe('Ant Design locale sync', () => {
-  it('App renders translated application strings in zh-CN', async () => {
+  it('App renders the zh-CN disclaimer title under zh-CN', async () => {
     await i18n.changeLanguage('zh-CN');
-    renderApp();
-    expect(screen.getByText(/欢迎使用/)).toBeInTheDocument();
-    // The English scaffold tag is translated, so the English label is gone.
-    expect(screen.queryByText('Week 1 scaffold')).toBeNull();
+    renderAppWith(null);
+    // Disclaimer title is locale-distinct (en: "Important Disclaimer").
+    expect(screen.getByText('重要免责声明')).toBeInTheDocument();
+    expect(screen.queryByText('Important Disclaimer')).toBeNull();
   });
 
   it('antd Empty default description follows the i18n language (no reload)', async () => {
     const user = userEvent.setup();
-    const { container, unmount } = renderApp(<Empty />);
+    const { container, unmount } = renderAppWith(<Empty />);
 
     // English: antd Empty says "No data".
     expect(container.textContent).toContain('No data');
@@ -65,7 +79,7 @@ describe('Ant Design locale sync', () => {
 
   it('switching back to English restores antd English copy', async () => {
     const user = userEvent.setup();
-    const { container, unmount } = renderApp(<Empty />);
+    const { container, unmount } = renderAppWith(<Empty />);
 
     await switchLanguageViaUI(user, '简体中文');
     expect(container.textContent).toContain('暂无数据');

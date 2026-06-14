@@ -24,6 +24,7 @@ const errors = {
   assetNotFound: 'Asset not found.',
   ohlcvSyncFailed: 'Failed to sync OHLCV data for the requested symbol.',
   watchlistLimitReached: 'You have reached the maximum number of watchlist entries.',
+  watchlistNameExists: 'A watchlist with this name already exists.',
   backtestFailed: 'Backtest execution failed. Check parameters and retry.',
 } as const;
 
