@@ -38,6 +38,10 @@ docstring-code-format = true
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["N802", "N803"]
 "infra/migrations/*" = ["E402"]
+# FastAPI's canonical pattern is `param: T = Depends(...)`. B008 (function call
+# in argument default) would flag every dependency-injected parameter, so we
+# suppress it across the API app.
+"apps/api/app/**/*.py" = ["B008"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
