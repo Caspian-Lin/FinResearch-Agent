@@ -4,63 +4,64 @@
 
 ## Overview
 
-<!-- TODO: introduce the persistence layer design — relational metadata in PostgreSQL, time-series market data in TimescaleDB hypertables, separation between OLTP-style tables and append-only analytical tables. Ref: 项目描述文件 §9 -->
+关系型元数据存于 PostgreSQL,时序行情存于 TimescaleDB hypertable。
+OLTP 风格表(`users` / `assets` / `watchlist` / `watchlist_items`)与追加型
+分析表(`ohlcv`)分离。
+
+所有业务表主键用 **UUID**(PG `gen_random_uuid()` server-side 生成),与业务
+标识(symbol)解耦,以应对 corporate action(拆股 / 改名 / symbol 退市重用)——
+这正是 FRA-13 将 FRA-5 的 `symbol PK` 改为 `asset_id UUID` 的原因。
 
 ## Core Tables
 
-| 表名 | 用途 |
-|---|---|
-| users | 用户信息 |
-| assets | 股票、ETF、指数等资产元数据 |
-| watchlists | 用户自定义股票池 |
-| watchlist_assets | 股票池与资产的多对多关系 |
-| market_ohlcv | OHLCV 行情时序数据 |
-| data_sync_jobs | 数据同步任务状态 |
-| data_quality_reports | 数据质量检查结果 |
-| factors | 因子值，如 momentum、volatility、sentiment |
-| backtest_runs | 回测任务元信息 |
-| backtest_metrics | 回测指标 |
-| research_memos | 自动生成投研报告 |
+Week 1 已实现的表(见 `init_week1_schema` 迁移):
+
+| 表名 | 主键 | 说明 |
+|---|---|---|
+| users | `id UUID` | 用户信息(`email` unique) |
+| assets | `id UUID` | 资产元数据;`UNIQUE(symbol, exchange)` |
+| watchlist | `id UUID` | 用户自选池;`UNIQUE(user_id, name)` |
+| watchlist_items | `(watchlist_id, asset_id)` | 自选池与资产多对多 |
+| ohlcv | `(asset_id, time, source)` | OHLCV 行情,TimescaleDB hypertable |
+
+后续 issue 实现的表:`data_sync_jobs`、`data_quality_reports`、`factors`、
+`backtest_runs`、`backtest_metrics`、`research_memos`(均以 `asset_id UUID`
+外键引用 `assets(id)`)。
+
+## Identity & Keys
+
+- **UUID 主键**:`assets` / `users` / `watchlist` 用 `id UUID` 主键,server-side
+  `gen_random_uuid()` 生成;关联表(`ohlcv` / `watchlist_items`)以 `asset_id` UUID
+  外键引用 `assets(id)`。symbol 仅作业务标识,`UNIQUE(symbol, exchange)` 约束
+  (不同交易所可能存在相同 symbol)。
+- **ohlcv 复合主键**:`(asset_id, time, source)` 支持同一时点多数据源,且 `time`
+  入主键满足 TimescaleDB hypertable 对分区列的要求。
 
 ## TimescaleDB Hypertables
 
 ```sql
-CREATE TABLE market_ohlcv (
-    time TIMESTAMPTZ NOT NULL,
-    asset_id UUID NOT NULL REFERENCES assets(id),
-    open NUMERIC,
-    high NUMERIC,
-    low NUMERIC,
-    close NUMERIC,
-    adjusted_close NUMERIC,
-    volume BIGINT,
-    source TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    PRIMARY KEY (time, asset_id, source)
+CREATE TABLE ohlcv (
+    asset_id   UUID          NOT NULL REFERENCES assets(id),
+    time       TIMESTAMPTZ   NOT NULL,
+    source     TEXT          NOT NULL,
+    open       NUMERIC(20,6),
+    high       NUMERIC(20,6),
+    low        NUMERIC(20,6),
+    close      NUMERIC(20,6),
+    volume     BIGINT,
+    created_at TIMESTAMPTZ   DEFAULT now(),
+    PRIMARY KEY (asset_id, time, source)
 );
 
-SELECT create_hypertable('market_ohlcv', 'time');
-```
-
-```sql
-CREATE TABLE data_quality_reports (
-    id UUID PRIMARY KEY,
-    asset_id UUID NOT NULL REFERENCES assets(id),
-    source TEXT NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
-    missing_days INT,
-    duplicate_rows INT,
-    null_close_rows INT,
-    abnormal_return_days INT,
-    generated_at TIMESTAMPTZ DEFAULT now()
-);
+SELECT create_hypertable('ohlcv', 'time');
 ```
 
 ## Indexing Strategy
 
-<!-- TODO: document composite indexes on (asset_id, time), indexes for watchlist lookups, GIN/BRIN considerations for hypertables, retention policy. Ref: 项目描述文件 §9.2 -->
+<!-- TODO: composite indexes on (asset_id, time), watchlist lookups, GIN/BRIN
+     considerations for hypertables, retention policy. Ref: 项目描述文件 §9.2 -->
 
 ## Migration Workflow
 
-<!-- TODO: Alembic migration authoring and review workflow, applying migrations inside Docker entrypoint, rollback strategy, seeding reference data (assets, benchmarks). Ref: 项目描述文件 §13 项目目录结构 -->
+<!-- TODO: Alembic 迁移编写/评审流程、Docker entrypoint 应用迁移、回滚策略、
+     播种参考数据(benchmarks)。Ref: 项目描述文件 §13 -->
