@@ -1,4 +1,5 @@
 """Tests for /assets endpoints. Placeholder until Week 1 implementation."""
+
 import pytest
 
 
