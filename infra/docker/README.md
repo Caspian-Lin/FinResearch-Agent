@@ -27,7 +27,7 @@ infra/docker/
 
 - **`postgres/init.sql`** 只负责创建 PostgreSQL 扩展（`timescaledb` /
   `uuid-ossp` / `citext`），**不创建任何业务表**。业务表（`users` /
-  `assets` / `market_ohlcv` / `data_quality_reports` / ...）全部由
+  `assets` / `ohlcv` / `data_quality_reports` / ...）全部由
   Alembic 迁移在 `infra/migrations/versions/` 中维护，通过
   `make migrate` 应用。
 - **`redis/redis.conf`** 定义 Redis 的内存上限、淘汰策略、AOF 持久化等

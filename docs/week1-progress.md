@@ -19,7 +19,7 @@ Week 1：金融数据底座与 Dashboard。
 - [ ] OHLCV 数据同步
 - [ ] 数据质量检查
 - [ ] 价格曲线展示
-- [ ] README 和截图
+- [ ] README 和 1 分钟 demo 步骤（不要求截图）
 
 ## Verification Checklist
 
@@ -41,7 +41,6 @@ Week 1：金融数据底座与 Dashboard。
 - [ ] Tech stack
 - [ ] Data schema
 - [ ] How to run
-- [ ] Screenshots
 - [ ] Week 1 progress
 - [ ] Next steps
 
