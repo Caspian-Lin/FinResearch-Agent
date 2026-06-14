@@ -3,7 +3,7 @@ name: finresearch-agent
 services:
   # ---------------- PostgreSQL + TimescaleDB ----------------
   postgres:
-    image: timescale/timescaledb:latest-pg15
+    image: timescale/timescaledb:latest-pg16
     container_name: finresearch-postgres
     restart: unless-stopped
     environment:

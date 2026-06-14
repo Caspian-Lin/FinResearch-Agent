@@ -7,7 +7,7 @@
 --
 -- 职责边界：
 --   本脚本只负责创建 PostgreSQL 扩展，**不创建任何业务表**。
---   所有业务表（users / assets / market_ohlcv / data_quality_reports / ...）
+--   所有业务表（users / assets / ohlcv / data_quality_reports / ...）
 --   都由 Alembic 迁移维护，请使用 `make migrate` 应用。
 --
 -- 修改注意：
@@ -16,7 +16,7 @@
 -- =============================================================================
 
 -- 启用 TimescaleDB 扩展（时序数据 hypertable）
--- 用于 market_ohlcv 等表，调用 create_hypertable() 自动按时间分区。
+-- 用于 ohlcv 等表，调用 create_hypertable() 自动按时间分区。
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 -- 启用 uuid-ossp 扩展，提供 uuid_generate_v4()

@@ -1,6 +1,6 @@
 """User ORM model — authentication identity.
 
-Password hashing is applied at the service layer (FRA-7 auth); the model only
+Password hashing is applied at the service layer (FRA-6 auth); the model only
 persists the resulting hash column.
 """
 
