@@ -5,6 +5,11 @@ Alembic migration (see ``infra/migrations/versions``). References assets by
 surrogate ``asset_id`` UUID. Composite primary key (asset_id, time, source)
 supports multi-source data at the same timestamp and satisfies the hypertable
 requirement that the partitioning column be part of the primary key.
+
+The raw Close price is stored in ``close`` and the split/dividend-adjusted
+close in ``adjusted_close``. Both come from the yfinance adapter with
+``auto_adjust=False`` (written by the FRA-8 yfinance service), so callers can
+choose between unadjusted and adjusted series.
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ class Ohlcv(Base):
     high: Mapped[Decimal | None] = mapped_column(Numeric(20, 6))
     low: Mapped[Decimal | None] = mapped_column(Numeric(20, 6))
     close: Mapped[Decimal | None] = mapped_column(Numeric(20, 6))
+    adjusted_close: Mapped[Decimal | None] = mapped_column(Numeric(20, 6))
     volume: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

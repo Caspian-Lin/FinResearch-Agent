@@ -48,6 +48,7 @@ CREATE TABLE ohlcv (
     high       NUMERIC(20,6),
     low        NUMERIC(20,6),
     close      NUMERIC(20,6),
+    adjusted_close NUMERIC(20,6),
     volume     BIGINT,
     created_at TIMESTAMPTZ   DEFAULT now(),
     PRIMARY KEY (asset_id, time, source)
