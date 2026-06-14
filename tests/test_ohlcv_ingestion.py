@@ -1,4 +1,5 @@
 """Tests for OHLCV data ingestion. Placeholder until Week 1 implementation."""
+
 import pytest
 
 

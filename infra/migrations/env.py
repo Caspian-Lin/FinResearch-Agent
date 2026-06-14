@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from logging.config import fileConfig
 
@@ -45,16 +46,14 @@ if config.config_file_name is not None:
 # 当前 skeleton 阶段，app.models 尚未实现，先置为 None。
 target_metadata = None
 
-try:  # pragma: no cover — 仅在模型齐备后才会成功
+with contextlib.suppress(ImportError):  # pragma: no cover — 仅在模型齐备后才会成功
+    # app.db.base 尚未实现时静默跳过，保持 skeleton 可运行；
+    # 在容器外执行时（如本地 alembic）也会落到这里。
     # 等到 apps/api/app/models/__init__.py 与 apps/api/app/db/base.py 就绪后，
-    # 删除下面两行的注释，并把 target_metadata 改为 Base.metadata。
+    # 取消下方注释，并把 target_metadata 改为 Base.metadata。
     # from app.db.base import Base  # noqa: F401
     # import app.models  # noqa: F401
     # target_metadata = Base.metadata
-    pass
-except ImportError:
-    # app.db.base 尚未实现时静默跳过，保持 skeleton 可运行。
-    # 在容器外执行时（如本地 alembic）也会落到这里。
     pass
 
 
@@ -62,8 +61,7 @@ except ImportError:
 # 从环境变量读取数据库 URL，覆盖 alembic.ini 中的 sqlalchemy.url
 # ---------------------------------------------------------------------------
 DEFAULT_DATABASE_URL = (
-    "postgresql+psycopg://"
-    "finresearch:finresearch_dev_password@postgres:5432/finresearch"
+    "postgresql+psycopg://finresearch:finresearch_dev_password@postgres:5432/finresearch"
 )
 
 database_url = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)

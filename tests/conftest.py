@@ -6,8 +6,8 @@ backend services land, add shared fixtures here so that every
 ``test_<module>.py`` can depend on a consistent test database session,
 FastAPI ``TestClient``, and seeded reference data.
 """
-from __future__ import annotations
 
+from __future__ import annotations
 
 # TODO: add fixtures for test DB session (sqlalchemy + pytest fixtures)
 # - Spin up a disposable Postgres (or sqlite fallback) schema per test

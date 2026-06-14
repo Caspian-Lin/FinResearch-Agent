@@ -1,4 +1,5 @@
 """Tests for data quality reporting. Placeholder until Week 1 implementation."""
+
 import pytest
 
 
