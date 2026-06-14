@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.assets import router as assets_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -47,3 +48,6 @@ async def root() -> dict[str, str]:
         "docs": "/docs",
         "health": "/health",
     }
+
+
+app.include_router(assets_router)
