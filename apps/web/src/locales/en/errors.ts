@@ -26,6 +26,10 @@ const errors = {
   watchlistLimitReached: 'You have reached the maximum number of watchlist entries.',
   watchlistNameExists: 'A watchlist with this name already exists.',
   backtestFailed: 'Backtest execution failed. Check parameters and retry.',
+
+  /** Auth domain codes (mapped from 401/409 on the auth endpoints). */
+  invalidCredentials: 'Incorrect email or password.',
+  emailExists: 'An account with this email already exists.',
 } as const;
 
 export default errors;

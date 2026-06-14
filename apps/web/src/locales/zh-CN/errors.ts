@@ -25,6 +25,10 @@ const errors = {
   watchlistLimitReached: '观察列表条数已达上限。',
   watchlistNameExists: '已存在同名自选股。',
   backtestFailed: '回测执行失败,请检查参数后重试。',
+
+  /** 认证领域错误码(由 auth 端点的 401/409 映射而来)。 */
+  invalidCredentials: '邮箱或密码错误。',
+  emailExists: '该邮箱已被注册。',
 } as const;
 
 export default errors;

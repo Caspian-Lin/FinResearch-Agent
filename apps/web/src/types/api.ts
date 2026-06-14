@@ -41,3 +41,27 @@ export interface SelectedAsset {
   exchange: string;
   name: string;
 }
+
+/**
+ * Authenticated user (FRA-6 `UserRead`).
+ *
+ * `id` is a UUID; `created_at` is an ISO string (serialized as-is by the API).
+ */
+export interface UserRead {
+  id: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+/**
+ * Login response (FRA-6 `TokenResponse`).
+ *
+ * `expires_in` is in seconds; `token_type` is always `bearer` per the backend
+ * contract but kept generic here so the field name is self-documenting.
+ */
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+}

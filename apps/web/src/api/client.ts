@@ -7,7 +7,9 @@
  *   token is present (FRA-17 owns issuing tokens; FRA-16 only forwards them).
  * - The response interceptor normalizes any error into an `ApiError` with a
  *   stable `code` the UI can map to a translated message, and clears the
- *   token on 401 (FRA-17 will extend this to a /login redirect).
+ *   token on 401 then fires a registered `unauthorizedHandler` so FRA-17 can
+ *   log the user out and redirect to /login without creating a circular
+ *   import (the handler is registered by the app at mount time).
  *
  * Security: token material never leaves the Authorization header — it is not
  * logged, not stored on the error object, and not echoed back to the UI.
@@ -46,6 +48,26 @@ export class ApiError extends Error {
     this.status = status;
     this.detail = detail;
   }
+}
+
+/**
+ * Optional 401 side-effect hook.
+ *
+ * The response interceptor always clears the token on 401. FRA-17 additionally
+ * wants to log the user out and redirect to /login — but `client.ts` must not
+ * import the auth store or react-router (that would create a circular import:
+ * store → api/auth → client → store). Instead, the app registers a single
+ * callback here at mount time, and the interceptor invokes it after clearing
+ * the token. Decoupling keeps the dependency graph acyclic.
+ */
+let unauthorizedHandler: (() => void) | null = null;
+
+/**
+ * Register the side-effect to run after a 401 clears the token. Pass `null` to
+ * unregister (e.g. on app unmount). Only the most recent registration is kept.
+ */
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  unauthorizedHandler = fn;
 }
 
 /** Map an HTTP status (or its absence) to a stable error code. */
@@ -92,9 +114,13 @@ apiClient.interceptors.response.use(
   (error: AxiosError<unknown>) => {
     const status = error.response?.status;
     // On 401 the token is invalid/expired: drop it so the next request is
-    // treated as anonymous. FRA-17 will add the /login redirect here.
+    // treated as anonymous, then invoke the registered side-effect (FRA-17
+    // wires this to a logout + redirect to /login). The handler is invoked
+    // asynchronously (not awaited) so a rejected response is never delayed by
+    // navigation; React state updates are scheduled out-of-band.
     if (status === 401) {
       clearAccessToken();
+      unauthorizedHandler?.();
     }
     const code = errorCodeFromStatus(status);
     const detail = extractDetail(error);
