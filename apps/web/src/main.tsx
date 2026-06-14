@@ -8,7 +8,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './i18n';
 
 import App from './App';
+import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
 import WatchlistPage from '@/pages/WatchlistPage';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -16,8 +19,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <Routes>
         {/* App is the layout route (renders Header + <Outlet/> + disclaimer). */}
         <Route element={<App />}>
-          <Route path="/" element={<Navigate to="/watchlist" replace />} />
-          <Route path="/watchlist" element={<WatchlistPage />} />
+          {/* Public auth routes. */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          {/* Protected routes — guarded by ProtectedRoute. */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Navigate to="/watchlist" replace />} />
+            <Route path="/watchlist" element={<WatchlistPage />} />
+          </Route>
+
+          {/* Unknown paths funnel toward the (protected) watchlist. */}
           <Route path="*" element={<Navigate to="/watchlist" replace />} />
         </Route>
       </Routes>
