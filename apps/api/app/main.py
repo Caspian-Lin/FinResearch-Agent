@@ -14,6 +14,7 @@ from app.api.auth import router as auth_router
 from app.api.ohlcv import router as ohlcv_router
 from app.api.quality import router as quality_router
 from app.api.sync import router as sync_router
+from app.api.watchlists import router as watchlists_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -43,6 +44,7 @@ app.include_router(assets_router)
 app.include_router(ohlcv_router)
 app.include_router(quality_router)
 app.include_router(sync_router)
+app.include_router(watchlists_router)
 
 
 @app.get("/health", tags=["meta"])
