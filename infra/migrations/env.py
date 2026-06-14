@@ -18,7 +18,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import os
 from logging.config import fileConfig
 
@@ -37,24 +36,14 @@ if config.config_file_name is not None:
 # ---------------------------------------------------------------------------
 # target_metadata：autogenerate 比对的目标
 # ---------------------------------------------------------------------------
-# 正式启用 autogenerate 时应当取消下方注释：
-#
-#   from app.db.base import Base
-#   import app.models  # noqa: F401  — 触发模型注册到 Base.metadata
-#   target_metadata = Base.metadata
-#
-# 当前 skeleton 阶段，app.models 尚未实现，先置为 None。
-target_metadata = None
+# Importing app.models registers every model on Base.metadata so that
+# `alembic revision --autogenerate` detects them. Requires the `app` package
+# to be importable: in the api container WORKDIR=/app/apps/api; locally run
+# alembic from apps/api (or put it on PYTHONPATH).
+import app.models  # noqa: F401  — register models on Base.metadata
+from app.db.base import Base
 
-with contextlib.suppress(ImportError):  # pragma: no cover — 仅在模型齐备后才会成功
-    # app.db.base 尚未实现时静默跳过，保持 skeleton 可运行；
-    # 在容器外执行时（如本地 alembic）也会落到这里。
-    # 等到 apps/api/app/models/__init__.py 与 apps/api/app/db/base.py 就绪后，
-    # 取消下方注释，并把 target_metadata 改为 Base.metadata。
-    # from app.db.base import Base  # noqa: F401
-    # import app.models  # noqa: F401
-    # target_metadata = Base.metadata
-    pass
+target_metadata = Base.metadata
 
 
 # ---------------------------------------------------------------------------
