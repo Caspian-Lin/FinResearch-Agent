@@ -1,0 +1,137 @@
+name: finresearch-agent
+
+services:
+  # ---------------- PostgreSQL + TimescaleDB ----------------
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: finresearch-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-finresearch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finresearch_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-finresearch}
+      TS_TUNE_MEMORY: "1GB"
+      TS_TUNE_NUM_CPUS: "2"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finresearch} -d ${POSTGRES_DB:-finresearch}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - finresearch-net
+
+  # ---------------- Redis ----------------
+  redis:
+    image: redis:7-alpine
+    container_name: finresearch-redis
+    restart: unless-stopped
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./infra/docker/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - finresearch-net
+
+  # ---------------- FastAPI backend ----------------
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: finresearch-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-1440}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers ${API_WORKERS:-1}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/api:/app/apps/api:cached
+      - ./packages:/app/packages:cached
+      - ./infra/migrations:/app/infra/migrations:cached
+    working_dir: /app/apps/api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - finresearch-net
+
+  # ---------------- Worker ----------------
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    container_name: finresearch-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    command: ["python", "-m", "worker.main"]
+    volumes:
+      - ./apps/worker:/app/apps/worker:cached
+      - ./packages:/app/packages:cached
+    working_dir: /app/apps/worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - finresearch-net
+
+  # ---------------- Web (Vite dev server) ----------------
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    container_name: finresearch-web
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    command: ["pnpm", "--filter", "@finresearch/web", "dev", "--host", "0.0.0.0"]
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web:/workspace/apps/web:cached
+      - ./packages:/workspace/packages:cached
+      - web_node_modules:/workspace/apps/web/node_modules
+    working_dir: /workspace
+    depends_on:
+      - api
+    networks:
+      - finresearch-net
+
+networks:
+  finresearch-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  web_node_modules:

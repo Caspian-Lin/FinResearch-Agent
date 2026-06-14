@@ -1,0 +1,24 @@
+{
+  "name": "finresearch-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LLM-powered Financial Research and Backtesting System",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @finresearch/web dev",
+    "build": "pnpm --filter @finresearch/web build",
+    "lint": "pnpm -r lint",
+    "format": "pnpm -r format",
+    "type-check": "pnpm -r type-check",
+    "clean": "pnpm -r exec rm -rf dist node_modules .turbo"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}

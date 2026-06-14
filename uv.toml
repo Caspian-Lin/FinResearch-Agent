@@ -1,0 +1,13 @@
+# uv configuration — https://docs.astral.sh/uv/reference/settings/
+# Uses Tsinghua PyPI mirror for fast installs in mainland China.
+
+[[index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple/"
+default = true
+
+# Use Tsinghua mirror for CPython downloads as well.
+python-install-mirror = "https://mirrors.tuna.tsinghua.edu.cn/python-build-standalone"
+
+[pip]
+# Fallback to official PyPI if mirror is missing a package.
+extra-index-url = ["https://pypi.org/simple"]
