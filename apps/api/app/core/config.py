@@ -80,6 +80,11 @@ class Settings(BaseSettings):
     alpha_vantage_api_key: str = Field(default="", alias="ALPHA_VANTAGE_API_KEY")
     fred_api_key: str = Field(default="", alias="FRED_API_KEY")
 
+    # Data quality
+    quality_large_return_threshold: float = Field(
+        default=0.2, alias="QUALITY_LARGE_RETURN_THRESHOLD"
+    )
+
     # LLM
     openai_api_key: str = Field(default="", alias="OPENAI_API_KEY")
     openai_base_url: str = Field(
