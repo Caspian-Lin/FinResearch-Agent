@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
-from sqlalchemy import (
-    BigInteger,
-    DateTime,
-    ForeignKey,
-    String,
-    UniqueConstraint,
-    func,
-)
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -23,8 +18,12 @@ class Watchlist(Base):
     __tablename__ = "watchlist"
     __table_args__ = (UniqueConstraint("user_id", "name", name="uq_watchlist_user_name"),)
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -32,14 +31,16 @@ class Watchlist(Base):
 
 
 class WatchlistItem(Base):
-    """Association between a watchlist and an asset (by symbol)."""
+    """Association between a watchlist and an asset (by asset_id)."""
 
     __tablename__ = "watchlist_items"
 
-    watchlist_id: Mapped[int] = mapped_column(
-        BigInteger, ForeignKey("watchlist.id"), primary_key=True
+    watchlist_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("watchlist.id"), primary_key=True
     )
-    symbol: Mapped[str] = mapped_column(String(32), ForeignKey("assets.symbol"), primary_key=True)
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id"), primary_key=True
+    )
     added_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

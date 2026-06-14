@@ -1,8 +1,8 @@
 """init_week1_schema
 
-Revision ID: e0af2da98c97
+Revision ID: 3fbe15cc698b
 Revises: 
-Create Date: 2026-06-14 12:08:22.405564+00:00
+Create Date: 2026-06-14 13:18:43.767719+00:00
 
 """
 from __future__ import annotations
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e0af2da98c97'
+revision: str = '3fbe15cc698b'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,16 +26,18 @@ def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS timescaledb;")
 
     op.create_table('assets',
+    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('symbol', sa.String(length=32), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('exchange', sa.String(length=64), nullable=False),
     sa.Column('asset_type', sa.String(length=32), nullable=False),
     sa.Column('currency', sa.String(length=8), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.PrimaryKeyConstraint('symbol')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('symbol', 'exchange', name='uq_asset_symbol_exchange')
     )
     op.create_table('users',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
     sa.Column('email', sa.String(length=255), nullable=False),
     sa.Column('hashed_password', sa.String(length=255), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
@@ -44,23 +46,24 @@ def upgrade() -> None:
     sa.UniqueConstraint('email')
     )
     op.create_table('ohlcv',
-    sa.Column('symbol', sa.String(length=32), nullable=False),
+    sa.Column('asset_id', sa.UUID(), nullable=False),
     sa.Column('time', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('source', sa.String(length=32), nullable=False),
     sa.Column('open', sa.Numeric(precision=20, scale=6), nullable=True),
     sa.Column('high', sa.Numeric(precision=20, scale=6), nullable=True),
     sa.Column('low', sa.Numeric(precision=20, scale=6), nullable=True),
     sa.Column('close', sa.Numeric(precision=20, scale=6), nullable=True),
     sa.Column('volume', sa.BigInteger(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['symbol'], ['assets.symbol'], ),
-    sa.PrimaryKeyConstraint('symbol', 'time')
+    sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
+    sa.PrimaryKeyConstraint('asset_id', 'time', 'source')
     )
     # ohlcv 转 TimescaleDB hypertable，按 time 分区
     op.execute("SELECT create_hypertable('ohlcv', 'time');")
 
     op.create_table('watchlist',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
-    sa.Column('user_id', sa.BigInteger(), nullable=False),
+    sa.Column('id', sa.UUID(), server_default=sa.text('gen_random_uuid()'), nullable=False),
+    sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
@@ -68,12 +71,12 @@ def upgrade() -> None:
     sa.UniqueConstraint('user_id', 'name', name='uq_watchlist_user_name')
     )
     op.create_table('watchlist_items',
-    sa.Column('watchlist_id', sa.BigInteger(), nullable=False),
-    sa.Column('symbol', sa.String(length=32), nullable=False),
+    sa.Column('watchlist_id', sa.UUID(), nullable=False),
+    sa.Column('asset_id', sa.UUID(), nullable=False),
     sa.Column('added_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['symbol'], ['assets.symbol'], ),
+    sa.ForeignKeyConstraint(['asset_id'], ['assets.id'], ),
     sa.ForeignKeyConstraint(['watchlist_id'], ['watchlist.id'], ),
-    sa.PrimaryKeyConstraint('watchlist_id', 'symbol')
+    sa.PrimaryKeyConstraint('watchlist_id', 'asset_id')
     )
     # ### end Alembic commands ###
 
