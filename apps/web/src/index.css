@@ -1,0 +1,29 @@
+/*
+ * Global reset (FRA-24).
+ *
+ * antd 5 only injects its body reset (margin:0, etc.) when the app is wrapped
+ * in antd's own <App> component. We use ConfigProvider + Layout directly, so
+ * that reset never runs — the browser's default `body { margin: 8px }` was
+ * leaving a white border around the viewport and the app didn't fill it.
+ *
+ * #root is made a flex column with min-height 100vh so the Layout's Footer
+ * (which carries the risk disclaimer) always sticks to the bottom of the
+ * viewport regardless of how little page content there is.
+ */
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}

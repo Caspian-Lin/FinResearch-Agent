@@ -143,3 +143,22 @@ describe('App — global 401 handler', () => {
     expect(screen.queryByText('token expired')).toBeNull();
   });
 });
+
+describe('App — layout (FRA-24)', () => {
+  it('pins the risk disclaimer inside the Footer, not floating in Content', () => {
+    const { container } = renderApp();
+    const footer = container.querySelector('footer');
+    const content = container.querySelector('.ant-layout-content');
+    // The disclaimer is a warning Alert; it must live in the footer...
+    expect(footer?.querySelector('.ant-alert-warning')).not.toBeNull();
+    // ...and NOT float inside the page content area.
+    expect(content?.querySelector('.ant-alert-warning')).toBeNull();
+  });
+
+  it('makes the Header sticky so it stays visible while scrolling', () => {
+    const { container } = renderApp();
+    const header = container.querySelector('header');
+    expect(header).not.toBeNull();
+    expect(header?.getAttribute('style') ?? '').toMatch(/position:\s*sticky/i);
+  });
+});
