@@ -1,0 +1,112 @@
+name: CI
+
+# Runs on every push to dev/main and every PR targeting them. Cancels a
+# superseded run on the same ref so force-pushes / rapid commits don't waste
+# runner minutes.
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ruff + alembic + pytest)
+    runs-on: ubuntu-latest
+
+    # TimescaleDB image is required: the init migration runs
+    # `CREATE EXTENSION timescaledb` + `create_hypertable('ohlcv', 'time')`,
+    # which a stock postgres image cannot satisfy. Redis backs the RQ queue.
+    services:
+      postgres:
+        image: timescale/timescaledb:pg16
+        env:
+          POSTGRES_USER: finresearch
+          POSTGRES_PASSWORD: finresearch_dev_password
+          POSTGRES_DB: finresearch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U finresearch -d finresearch"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # Point at the service containers (exposed on job-container localhost).
+      DATABASE_URL: postgresql+psycopg://finresearch:finresearch_dev_password@localhost:5432/finresearch
+      REDIS_URL: redis://localhost:6379/0
+      # alembic env.py does `import app.models` / `from app.db.base import Base`,
+      # so the app package must be importable.
+      PYTHONPATH: apps/api
+      # Settings requires a JWT secret; tests don't verify real signatures.
+      JWT_SECRET: ci-test-jwt-secret-at-least-32-chars-long
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Python dependencies
+        run: uv sync --all-packages
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Apply migrations (creates tables + hypertable)
+        run: uv run --package finresearch-api alembic -c infra/migrations/alembic.ini upgrade head
+
+      - name: Pytest
+        run: uv run pytest
+
+  frontend:
+    name: Frontend (tsc + eslint + vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm -r type-check
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Test (vitest)
+        run: pnpm --filter @finresearch/web test
