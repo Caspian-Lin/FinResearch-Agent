@@ -16,6 +16,7 @@ import logging
 import os
 import sys
 
+from app.core.config import settings
 from redis import Redis
 from rq import Queue, Worker
 
@@ -35,7 +36,10 @@ def main() -> int:
     """Start RQ worker listening on configured queues."""
     _configure_logging()
 
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+    # Read REDIS_URL via settings (loads .env). Bare os.getenv never sees
+    # .env and fell back to the docker host `redis`, which fails on local dev
+    # (WSL2, no Docker) — same class of bug as the old postgres DATABASE_URL.
+    redis_url = settings.redis_url
     connection = Redis.from_url(redis_url)
 
     queues = [

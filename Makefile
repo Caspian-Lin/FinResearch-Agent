@@ -70,6 +70,9 @@ migrate-new: ## Create new migration (NAME=add_xxx)
 migrate-down: ## Roll back one migration
 	docker compose exec api alembic -c /app/infra/migrations/alembic.ini downgrade -1
 
+seed: ## Seed sample asset universe (US + A-share) into the database
+	$(UV) run --package finresearch-api python -m app.db.seed
+
 # ---------- Local development ----------
 
 api-dev: ## Run FastAPI locally with reload (no Docker)
@@ -81,6 +84,13 @@ web-dev: ## Run Vite dev server locally
 
 worker-dev: ## Run RQ worker locally (no Docker, requires Redis)
 	$(UV) run --package finresearch-worker python -m worker.main
+
+dev: ## Run api + worker + web together (Ctrl+C stops all three)
+	@echo "Starting api (:8000) + worker + web (:5173). Ctrl+C stops all."
+	@trap 'kill 0' EXIT; \
+	$(UV) run --package finresearch-api uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --app-dir apps/api & \
+	$(UV) run --package finresearch-worker python -m worker.main & \
+	$(PNPM) --filter @finresearch/web dev
 
 # ---------- Quality ----------
 
