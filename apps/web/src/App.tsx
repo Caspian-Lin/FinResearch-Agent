@@ -3,9 +3,10 @@
  *
  * App is a pure layout component rendered as the parent of a React Router
  * `<Route>` tree: it renders the Header (brand + language switcher + user menu)
- * and a Content area whose body is `<Outlet/>` (the matched child route), with
- * the project-wide risk disclaimer pinned below the page content. Page-specific
- * content is supplied by routes in `main.tsx`.
+ * and a Content area whose body is `<Outlet/>` (the matched child route). The
+ * project-wide risk disclaimer is pinned inside the Footer so it always sits at
+ * the bottom of the viewport. Page-specific content is supplied by routes in
+ * `main.tsx`.
  *
  * Ant Design `ConfigProvider.locale` is bound to the active i18n language so
  * antd's built-in copy (pagination, date pickers, Empty, …) follows the user's
@@ -19,6 +20,15 @@
  *    /login. This avoids a circular import (client → store → client).
  *  - Render the Header user area: authenticated → email dropdown with sign-out;
  *    unauthenticated → "Sign in" button; loading → small spinner placeholder.
+ *
+ * FRA-24 layout fixes:
+ *  - Layout is a flex column (min-height 100vh) with Content flex:1, so the
+ *    Footer (with the disclaimer) always sticks to the bottom no matter how
+ *    little page content there is.
+ *  - Header is position:sticky so it stays visible while scrolling.
+ *  - Content no longer caps width at 1100px — the dashboard fills the viewport.
+ *  - The body margin reset lives in src/index.css (antd 5's resetCss only
+ *    injects when wrapped in its <App> component, which we don't use).
  */
 import { useEffect } from 'react';
 import {
@@ -115,9 +125,14 @@ function App() {
         },
       }}
     >
-      <Layout style={{ minHeight: '100vh' }}>
+      {/* flex column + minHeight 100vh: Content (flex:1) fills, Footer sticks
+          to the bottom even when page content is short. */}
+      <Layout style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Header
           style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
             display: 'flex',
             alignItems: 'center',
             background: '#001529',
@@ -162,21 +177,22 @@ function App() {
           </div>
         </Header>
 
-        <Content style={{ padding: '48px 24px' }}>
-          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-            <Outlet />
-
-            <Alert
-              type="warning"
-              showIcon
-              style={{ marginTop: 32 }}
-              message={t('common:disclaimer.title')}
-              description={t('common:disclaimer.body')}
-            />
-          </div>
+        {/* No maxWidth cap (FRA-24): the dashboard fills the viewport width.
+            flex:1 pushes the Footer down to the bottom on short pages. */}
+        <Content style={{ flex: 1, padding: '24px 32px' }}>
+          <Outlet />
         </Content>
 
+        {/* The risk disclaimer lives in the Footer so it always sits at the
+            bottom of the viewport rather than floating with page content. */}
         <Footer style={{ textAlign: 'center', color: '#888' }}>
+          <Alert
+            type="warning"
+            showIcon
+            style={{ textAlign: 'left', marginBottom: 12 }}
+            message={t('common:disclaimer.title')}
+            description={t('common:disclaimer.body')}
+          />
           {t('common:appName')} · {t('common:tagline')}
         </Footer>
       </Layout>

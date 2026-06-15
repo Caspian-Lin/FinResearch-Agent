@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 // active language resolved before the first React render. `initReactI18next`
 // resolves synchronously, so no Suspense/loading flash on first paint.
 import './i18n';
+import './index.css';
 
 import App from './App';
 import LoginPage from '@/pages/LoginPage';

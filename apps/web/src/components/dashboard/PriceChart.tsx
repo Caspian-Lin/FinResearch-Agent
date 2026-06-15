@@ -35,10 +35,19 @@ export function PriceChart({ bars, loading, errorCode }: PriceChartProps) {
   const option = useMemo(() => buildPriceChartOption(bars, t), [bars, t]);
 
   if (loading) {
+    // Fixed 360px placeholder matches the rendered chart height below, so
+    // toggling between loading and data doesn't make the page jump (FRA-24).
     return (
-      <div style={{ textAlign: 'center', padding: 48 }}>
+      <div
+        style={{
+          height: 360,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
         <Spin tip={t('dashboard:loading')}>
-          <div style={{ height: 48 }} />
+          <div style={{ height: 48, width: 48 }} />
         </Spin>
       </div>
     );
