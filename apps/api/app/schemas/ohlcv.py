@@ -8,24 +8,29 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
 
 class OhlcvRead(BaseModel):
-    """One OHLCV bar (read shape)."""
+    """One OHLCV bar (read shape).
+
+    Price fields are typed ``float`` (not ``Decimal``) so they serialize as JSON
+    numbers — the frontend chart needs numeric values, and Pydantic v2 otherwise
+    serializes ``Decimal`` as a string. Precision loss to float64 is acceptable
+    for charting; the DB column stays ``numeric`` for storage accuracy.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     asset_id: uuid.UUID
     time: datetime
     source: str
-    open: Decimal | None
-    high: Decimal | None
-    low: Decimal | None
-    close: Decimal | None
-    adjusted_close: Decimal | None
+    open: float | None
+    high: float | None
+    low: float | None
+    close: float | None
+    adjusted_close: float | None
     volume: int | None
 
 

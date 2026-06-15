@@ -44,6 +44,7 @@ const dashboard = {
   filters: {
     source: '数据源',
     dateRange: '日期范围',
+    chartType: '图表类型',
   },
 
   priceChart: {
@@ -55,6 +56,30 @@ const dashboard = {
     /** 图表下方说明复权价缺失时回退到收盘价。 */
     fallbackNote: '使用复权收盘价,缺失时回退到收盘价。',
     noData: '所选区间无价格数据。',
+    chartType: {
+      line: '折线',
+      candle: 'K线',
+      area: '面积',
+    },
+    volume: {
+      label: '成交量',
+    },
+    ma: {
+      label: '均线',
+      ma5: 'MA5',
+      ma20: 'MA20',
+    },
+    adjust: {
+      label: '复权',
+      adjusted: '前复权',
+      raw: '不复权',
+    },
+    size: {
+      label: '高度',
+      small: '小',
+      medium: '中',
+      large: '大',
+    },
   },
 
   quality: {

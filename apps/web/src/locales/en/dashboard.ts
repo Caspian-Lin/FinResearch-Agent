@@ -44,6 +44,7 @@ const dashboard = {
   filters: {
     source: 'Source',
     dateRange: 'Date range',
+    chartType: 'Chart type',
   },
 
   priceChart: {
@@ -55,6 +56,30 @@ const dashboard = {
     /** Note shown under the chart explaining the close-price fallback. */
     fallbackNote: 'Adjusted close, falling back to close when missing.',
     noData: 'No price data for the selected window.',
+    chartType: {
+      line: 'Line',
+      candle: 'Candle',
+      area: 'Area',
+    },
+    volume: {
+      label: 'Volume',
+    },
+    ma: {
+      label: 'Moving avg',
+      ma5: 'MA5',
+      ma20: 'MA20',
+    },
+    adjust: {
+      label: 'Adjust',
+      adjusted: 'Adjusted',
+      raw: 'Raw',
+    },
+    size: {
+      label: 'Height',
+      small: 'Small',
+      medium: 'Medium',
+      large: 'Large',
+    },
   },
 
   quality: {
