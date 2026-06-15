@@ -70,6 +70,9 @@ migrate-new: ## Create new migration (NAME=add_xxx)
 migrate-down: ## Roll back one migration
 	docker compose exec api alembic -c /app/infra/migrations/alembic.ini downgrade -1
 
+seed: ## Seed sample asset universe (US + A-share) into the database
+	$(UV) run --package finresearch-api python -m app.db.seed
+
 # ---------- Local development ----------
 
 api-dev: ## Run FastAPI locally with reload (no Docker)
