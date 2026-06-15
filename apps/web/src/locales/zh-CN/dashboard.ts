@@ -74,6 +74,12 @@ const dashboard = {
       adjusted: '前复权',
       raw: '不复权',
     },
+    size: {
+      label: '高度',
+      small: '小',
+      medium: '中',
+      large: '大',
+    },
   },
 
   quality: {

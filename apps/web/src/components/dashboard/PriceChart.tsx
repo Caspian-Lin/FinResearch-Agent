@@ -5,8 +5,8 @@
  * candlestick / area — with an optional volume sub-chart and MA5/MA20 overlays.
  * The option is built by the pure, unit-tested `buildPriceChartOption`.
  *
- * The parent owns chart-type / volume / MA / adjust state (these only affect
- * rendering, never re-fetch) and passes them down as props.
+ * The parent owns chart-type / volume / MA / adjust / height state (they only
+ * affect rendering, never re-fetch) and passes them down as props.
  *
  * Language responsiveness: the parent passes the active `language` as `key` so a
  * language change remounts the chart with a freshly-translated option (echarts
@@ -36,6 +36,8 @@ interface PriceChartProps {
   ma?: { ma5?: boolean; ma20?: boolean };
   /** Price source for line/area (no effect on candle). */
   adjust?: Adjust;
+  /** Chart height in px (loading placeholder matches so toggles don't jump). */
+  height?: number;
 }
 
 export function PriceChart({
@@ -46,6 +48,7 @@ export function PriceChart({
   showVolume,
   ma,
   adjust,
+  height = 480,
 }: PriceChartProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -56,12 +59,10 @@ export function PriceChart({
   );
 
   if (loading) {
-    // Fixed 360px placeholder matches the rendered chart height below, so
-    // toggling between loading and data doesn't make the page jump (FRA-24).
     return (
       <div
         style={{
-          height: 360,
+          height,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -86,7 +87,7 @@ export function PriceChart({
     <div>
       {/* `key={language}` forces a remount on language change so the freshly
           translated option (legend/tooltip) takes effect. */}
-      <ReactECharts key={language} option={option} style={{ height: 360 }} notMerge />
+      <ReactECharts key={language} option={option} style={{ height }} notMerge />
       <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
         {t('dashboard:priceChart.fallbackNote')}
       </div>

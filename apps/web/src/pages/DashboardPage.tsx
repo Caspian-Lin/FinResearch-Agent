@@ -86,6 +86,7 @@ function DashboardPage() {
   const [showVolume, setShowVolume] = useState(true);
   const [ma, setMa] = useState<{ ma5: boolean; ma20: boolean }>({ ma5: false, ma20: false });
   const [adjust, setAdjust] = useState<Adjust>('adjusted');
+  const [chartHeight, setChartHeight] = useState<number>(480);
 
   const [ohlcv, setOhlcv] = useState<AsyncState<OhlcvRead[]>>(initState());
   const [quality, setQuality] = useState<AsyncState<QualityReport>>(initState());
@@ -212,6 +213,19 @@ function DashboardPage() {
           />
         </span>
         <span>
+          <Text type="secondary">{t('dashboard:priceChart.size.label')}: </Text>
+          <Segmented
+            aria-label={t('dashboard:priceChart.size.label')}
+            value={chartHeight}
+            onChange={(v) => setChartHeight(v)}
+            options={[
+              { value: 360, label: t('dashboard:priceChart.size.small') },
+              { value: 480, label: t('dashboard:priceChart.size.medium') },
+              { value: 640, label: t('dashboard:priceChart.size.large') },
+            ]}
+          />
+        </span>
+        <span>
           <Text type="secondary">{t('dashboard:priceChart.ma.label')}: </Text>
           <Checkbox
             checked={ma.ma5}
@@ -244,6 +258,7 @@ function DashboardPage() {
         showVolume={showVolume}
         ma={ma}
         adjust={adjust}
+        height={chartHeight}
       />
 
       <Row gutter={24} style={{ marginTop: 24 }}>

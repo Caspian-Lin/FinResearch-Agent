@@ -1,9 +1,13 @@
 /**
- * Unit tests for the pure option builder `buildPriceChartOption` (FRA-11).
+ * Unit tests for the pure option builder `buildPriceChartOption` (FRA-11, FRA-24).
  *
  * No DOM / React context is needed: we drive the builder with fixtures and a
  * real i18next `getFixedT` so the i18n behavior is exercised (not mocked).
  * The resulting EChartsOption is asserted structurally.
+ *
+ * FRA-24 changed the x-axis from `time` to `category` (trading-day labels) so
+ * non-trading days are hidden — the "timestamp" case now asserts the category
+ * label, and line data is a plain per-index value array.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 
@@ -39,19 +43,17 @@ describe('buildPriceChartOption', () => {
       makeBar({ time: '2024-01-03T00:00:00Z', adjusted_close: 102.75 }),
     ];
     const option = buildPriceChartOption(bars, t);
-    const series = option.series as [{ data: [number, number | null][] }];
-    expect(series[0].data[0][1]).toBe(101.5);
-    expect(series[0].data[1][1]).toBe(102.75);
+    const series = option.series as [{ data: (number | null)[] }];
+    expect(series[0].data[0]).toBe(101.5);
+    expect(series[0].data[1]).toBe(102.75);
   });
 
   it('falls back to close when adjusted_close is null', () => {
     const t = i18n.getFixedT('en', 'dashboard');
-    const bars = [
-      makeBar({ time: '2024-01-02T00:00:00Z', adjusted_close: null, close: 50 }),
-    ];
+    const bars = [makeBar({ time: '2024-01-02T00:00:00Z', adjusted_close: null, close: 50 })];
     const option = buildPriceChartOption(bars, t);
-    const series = option.series as [{ data: [number, number | null][] }];
-    expect(series[0].data[0][1]).toBe(50);
+    const series = option.series as [{ data: (number | null)[] }];
+    expect(series[0].data[0]).toBe(50);
   });
 
   it('emits a null y when both adjusted_close and close are null', () => {
@@ -62,8 +64,8 @@ describe('buildPriceChartOption', () => {
       makeBar({ time: '2024-01-04T00:00:00Z', adjusted_close: 3, close: 3 }),
     ];
     const option = buildPriceChartOption(bars, t);
-    const series = option.series as [{ data: [number, number | null][] }];
-    expect(series[0].data[1][1]).toBeNull();
+    const series = option.series as [{ data: (number | null)[] }];
+    expect(series[0].data[1]).toBeNull();
   });
 
   it('sets legend.data and series[0].name to the translated field name (en)', () => {
@@ -91,18 +93,16 @@ describe('buildPriceChartOption', () => {
     expect(legendZh.data).toEqual(['复权收盘价']);
   });
 
-  it('emits series.data timestamp as epoch ms via dayjs(time).valueOf()', () => {
+  it('uses a category x-axis of trading days (YYYY-MM-DD), hiding non-trading days', () => {
     const t = i18n.getFixedT('en', 'dashboard');
     const iso = '2024-03-15T00:00:00Z';
     const bars = [makeBar({ time: iso, adjusted_close: 7 })];
     const option = buildPriceChartOption(bars, t);
-    const series = option.series as [{ data: [number, number | null][] }];
-    const [ms, price] = series[0].data[0];
-    // dayjs parses the ISO string to epoch ms; just assert it is a number and
-    // corresponds to the same instant (non-zero, plausible 2024 range).
-    expect(typeof ms).toBe('number');
-    expect(ms).toBe(new Date(iso).getTime());
-    expect(price).toBe(7);
+    const xAxis = option.xAxis as { type: string; data: string[] };
+    expect(xAxis.type).toBe('category');
+    expect(xAxis.data).toEqual(['2024-03-15']);
+    const series = option.series as [{ data: (number | null)[] }];
+    expect(series[0].data[0]).toBe(7);
   });
 
   it('produces empty series.data for an empty bars array without throwing', () => {
@@ -121,26 +121,20 @@ describe('buildPriceChartOption', () => {
 });
 
 describe('buildPriceChartOption — chart types (FRA-24)', () => {
-  it('candlestick: series[0] is candlestick with [ts, open, close, low, high] tuples', () => {
+  it('candlestick: series[0] is candlestick with [open, close, low, high] tuples', () => {
     const t = i18n.getFixedT('en', 'dashboard');
     const bars = [
       makeBar({ time: '2024-01-02T00:00:00Z', open: 10, close: 12, high: 13, low: 9 }),
     ];
-    const option = buildPriceChartOption(bars, t, { chartType: 'candle' });
+    const option = buildPriceChartOption(bars, t, { chartType: 'candle', adjust: 'raw' });
     const series = option.series as [
-      { type: string; data: [number, number, number, number, number][] },
+      { type: string; data: ([number, number, number, number] | null)[] },
     ];
     expect(series[0].type).toBe('candlestick');
-    expect(series[0].data[0]).toEqual([
-      new Date('2024-01-02T00:00:00Z').getTime(),
-      10, // open
-      12, // close
-      9, // low
-      13, // high
-    ]);
+    expect(series[0].data[0]).toEqual([10, 12, 9, 13]); // [open, close, low, high]
   });
 
-  it('candlestick: skips bars with any null OHLC', () => {
+  it('candlestick: drops bars with any null OHLC (keeps the gap-free axis)', () => {
     const t = i18n.getFixedT('en', 'dashboard');
     const bars = [
       makeBar({ time: '2024-01-02T00:00:00Z', open: 10, close: 12, high: 13, low: 9 }),
@@ -219,20 +213,21 @@ describe('buildPriceChartOption — adjust toggle (FRA-24)', () => {
     const t = i18n.getFixedT('en', 'dashboard');
     const bars = [makeBar({ time: '2024-01-02T00:00:00Z', close: 40, adjusted_close: 99 })];
     const option = buildPriceChartOption(bars, t, { adjust: 'raw' });
-    const series = option.series as [{ data: [number, number | null][] }];
-    expect(series[0].data[0][1]).toBe(40);
+    const series = option.series as [{ data: (number | null)[] }];
+    expect(series[0].data[0]).toBe(40);
   });
 
-  it('adjust has no effect on candlestick (always raw OHLC)', () => {
+  it('adjust=adjusted back-adjusts candle OHLC by the adjusted_close/close ratio', () => {
     const t = i18n.getFixedT('en', 'dashboard');
+    // adjusted_close=40, close=20 → ratio 2 → every OHLC value doubled.
     const bars = [
       makeBar({
         time: '2024-01-02T00:00:00Z',
         open: 10,
-        close: 11,
-        high: 12,
+        close: 20,
+        high: 22,
         low: 9,
-        adjusted_close: 99,
+        adjusted_close: 40,
       }),
     ];
     const optionRaw = buildPriceChartOption(bars, t, { chartType: 'candle', adjust: 'raw' });
@@ -241,12 +236,14 @@ describe('buildPriceChartOption — adjust toggle (FRA-24)', () => {
       adjust: 'adjusted',
     });
     const sRaw = (optionRaw.series as [
-      { data: [number, number, number, number, number][] },
+      { data: ([number, number, number, number] | null)[] },
     ])[0];
     const sAdj = (optionAdj.series as [
-      { data: [number, number, number, number, number][] },
+      { data: ([number, number, number, number] | null)[] },
     ])[0];
-    expect(sRaw.data).toEqual(sAdj.data);
+    // raw keeps original OHLC; adjusted scales by ratio=2 → [o*2, c*2, l*2, h*2].
+    expect(sRaw.data[0]).toEqual([10, 20, 9, 22]);
+    expect(sAdj.data[0]).toEqual([20, 40, 18, 44]);
   });
 });
 

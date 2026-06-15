@@ -74,6 +74,12 @@ const dashboard = {
       adjusted: 'Adjusted',
       raw: 'Raw',
     },
+    size: {
+      label: 'Height',
+      small: 'Small',
+      medium: 'Medium',
+      large: 'Large',
+    },
   },
 
   quality: {

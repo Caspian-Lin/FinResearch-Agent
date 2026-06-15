@@ -1,13 +1,23 @@
 /**
  * Pure ECharts option builder for the OHLCV price chart (FRA-11, extended FRA-24).
  *
- * Extracted from `PriceChart.tsx` so the component file exports only a component
- * (react-refresh requires it) and the option logic — multi-type series, volume
- * sub-chart, MA overlays, adjusted/raw toggle — is unit-testable without a DOM.
+ * Supports three main chart types — line / candlestick / area — an optional
+ * volume sub-chart (second grid), optional MA5/MA20 overlays, and an
+ * adjusted-vs-raw price toggle. Pure: takes bars + t + options, returns an
+ * EChartsOption. Unit-tested without a DOM.
+ *
+ * Non-trading days are hidden: the x-axis is a `category` axis whose data is
+ * exactly the trading days present in `bars`, so weekends/holidays take no
+ * horizontal space and the series are drawn continuously (no gaps). All series
+ * align to that axis by index.
+ *
+ * Candlestick requires a complete OHLC for every slot (echarts' candle data
+ * type has no null), so in candle mode bars with any null OHLC are dropped
+ * (yfinance bars always carry full OHLCV, so this loses nothing in practice).
+ * Line/area/volume/MA tolerate per-bar nulls on their own (gaps / connectNulls).
  *
  * Backward compatibility: called with no options (or `chartType` omitted) it
- * returns the original single-line chart, so the existing priceChartOption.test
- * assertions still hold. New behaviour is opt-in via the `opts` argument.
+ * returns the original single-line chart (now on a category axis).
  *
  * Price-field semantics:
  *  - line / area: price = `adjusted_close ?? close` when `adjust='adjusted'`
@@ -41,6 +51,18 @@ const UP_COLOR = '#ef5350';
 const DOWN_COLOR = '#26a69a';
 const MA5_COLOR = '#ff9800';
 const MA20_COLOR = '#9c27b0';
+
+/** A bar with a guaranteed-complete OHLC (candlestick needs all four). */
+type OhlcBar = OhlcvRead & {
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+};
+
+function hasOhlc(b: OhlcvRead): b is OhlcBar {
+  return b.open != null && b.close != null && b.high != null && b.low != null;
+}
 
 function fmtNum(v: number | null | undefined): string {
   return v == null ? '—' : v.toLocaleString();
@@ -79,25 +101,43 @@ export function buildPriceChartOption(
   const adjust: Adjust = opts.adjust ?? 'adjusted';
 
   const fieldName = t('dashboard:priceChart.field.adjustedClose');
-  const tsOf = (b: OhlcvRead) => dayjs(b.time).valueOf();
 
-  // Price used by line/area points and by MA in line/area mode.
+  // Candlestick can't represent a null-OHLC slot, so drop such bars in candle
+  // mode (keeps the axis gap-free). Line/area keep every bar (per-bar nulls are
+  // handled by connectNulls / gaps).
+  const effectiveBars: readonly OhlcvRead[] =
+    chartType === 'candle' ? bars.filter(hasOhlc) : bars;
+
+  // Category labels: only the days that actually have a bar. Non-trading days
+  // (weekends/holidays) are absent, so the axis is gap-free.
+  const tradingDays = effectiveBars.map((b) => dayjs(b.time).format('YYYY-MM-DD'));
+
   const priceOf = (b: OhlcvRead): number | null =>
     adjust === 'adjusted' ? (b.adjusted_close ?? b.close ?? null) : (b.close ?? null);
 
-  // --- Main series + the close series MA rides on --------------------------
+  // --- Main series (data aligned to tradingDays by index) -------------------
   let mainSeries: SeriesOption;
   let closesForMA: (number | null)[];
   if (chartType === 'candle') {
-    const candleData: [number, number, number, number, number][] = [];
-    for (const b of bars) {
-      if (b.open == null || b.close == null || b.high == null || b.low == null) continue;
-      candleData.push([tsOf(b), b.open, b.close, b.low, b.high]);
-    }
     mainSeries = {
       name: fieldName,
       type: 'candlestick',
-      data: candleData,
+      data: effectiveBars.map((b): [number, number, number, number] => {
+        // candle mode already filtered to OhlcBar; the union type still permits
+        // null so coalesce to 0 (a no-op in practice). adjust='adjusted' back-
+        // adjusts OHLC by the adjusted_close/close ratio so candles track the
+        // split/dividend-adjusted price (line/area use adjusted_close directly);
+        // 'raw' keeps original OHLC.
+        const o = b.open ?? 0;
+        const c = b.close ?? 0;
+        const l = b.low ?? 0;
+        const h = b.high ?? 0;
+        if (adjust === 'adjusted' && b.adjusted_close != null && c !== 0) {
+          const ratio = b.adjusted_close / c;
+          return [o * ratio, c * ratio, l * ratio, h * ratio];
+        }
+        return [o, c, l, h];
+      }),
       itemStyle: {
         color: UP_COLOR,
         color0: DOWN_COLOR,
@@ -105,47 +145,44 @@ export function buildPriceChartOption(
         borderColor0: DOWN_COLOR,
       },
     };
-    closesForMA = bars.map((b) => b.close);
+    closesForMA = effectiveBars.map((b) => b.close);
   } else {
-    const lineData: [number, number | null][] = bars.map((b) => [tsOf(b), priceOf(b)]);
     mainSeries = {
       name: fieldName,
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      data: lineData,
+      data: effectiveBars.map((b) => priceOf(b)),
       ...(chartType === 'area' ? { areaStyle: { opacity: 0.15 } } : {}),
     };
-    closesForMA = bars.map((b) => priceOf(b));
+    closesForMA = effectiveBars.map((b) => priceOf(b));
   }
 
-  // --- MA overlays (line series on the main grid) --------------------------
+  // --- MA overlays (line series on the main grid, aligned by index) ---------
   const series: SeriesOption[] = [mainSeries];
   if (opts.ma?.ma5) {
-    const ma5 = calcMA(closesForMA, 5);
     series.push({
       name: 'MA5',
       type: 'line',
       showSymbol: false,
       connectNulls: false,
       lineStyle: { color: MA5_COLOR, width: 1 },
-      data: bars.map((b, i) => [tsOf(b), ma5[i]]),
+      data: calcMA(closesForMA, 5),
     });
   }
   if (opts.ma?.ma20) {
-    const ma20 = calcMA(closesForMA, 20);
     series.push({
       name: 'MA20',
       type: 'line',
       showSymbol: false,
       connectNulls: false,
       lineStyle: { color: MA20_COLOR, width: 1 },
-      data: bars.map((b, i) => [tsOf(b), ma20[i]]),
+      data: calcMA(closesForMA, 20),
     });
   }
 
-  // --- Volume sub-chart (second grid, shared time axis) --------------------
-  const hasVolume = showVolume && bars.some((b) => b.volume != null);
+  // --- Volume sub-chart (second grid, shared category axis) -----------------
+  const hasVolume = showVolume && effectiveBars.some((b) => b.volume != null);
   if (hasVolume) {
     series.push({
       name: t('dashboard:priceChart.volume.label'),
@@ -153,35 +190,45 @@ export function buildPriceChartOption(
       xAxisIndex: 1,
       yAxisIndex: 1,
       // Per-bar colour by up/down day; null-volume days emit a gap.
-      data: bars.map((b) => {
-        const ts = tsOf(b);
-        if (b.volume == null) return { value: [ts, null] };
+      data: effectiveBars.map((b) => {
+        if (b.volume == null) return null;
         const up = (b.close ?? 0) >= (b.open ?? 0);
-        return { value: [ts, b.volume], itemStyle: { color: up ? UP_COLOR : DOWN_COLOR } };
+        return { value: b.volume, itemStyle: { color: up ? UP_COLOR : DOWN_COLOR } };
       }),
     });
   }
 
-  // Tooltip renders one row per series at the hovered time; candle rows show OHLC.
+  // Tooltip: the category axis gives us the date as `params.name`; candle rows
+  // unpack [open, close, low, high], other rows show a single value.
   const tooltip: EChartsOption['tooltip'] = {
     trigger: 'axis',
     formatter: (params) => {
       const arr = Array.isArray(params) ? params : [params];
       const first = arr[0];
-      const ms = first && Array.isArray(first.value) ? (first.value[0] as number) : null;
-      if (ms == null) return '';
-      const date = dayjs(ms).format('LL');
+      const dateStr = first?.name ?? '';
+      if (!dateStr) return '';
+      const date = dayjs(dateStr).format('LL');
       const rows = arr
         .map((p) => {
-          const v = (p as { value?: unknown }).value;
           const marker = (p.marker ?? '') as string;
-          if (!Array.isArray(v)) return '';
           if (p.seriesType === 'candlestick') {
-            const [, o, c, l, h] = v as number[];
+            // echarts reorders `value` internally; read the original data tuple
+            // [open, close, low, high] we passed in via `p.data` instead.
+            const d = (p as { data?: unknown }).data;
+            const tuple = Array.isArray(d) ? (d as number[]) : [];
+            const [o, c, l, h] = tuple;
             return `${marker} ${p.seriesName}<br/>O ${fmtNum(o)} | H ${fmtNum(h)} | L ${fmtNum(l)} | C ${fmtNum(c)}`;
           }
-          const price = v[1] as number | null;
-          return `${marker} ${p.seriesName}: ${price == null ? '—' : Number(price).toLocaleString()}`;
+          const raw = (p as { value?: unknown }).value;
+          // Treat null AND NaN (echarts reports missing line points as NaN) as gaps.
+          const num: number | null = Array.isArray(raw)
+            ? typeof raw[1] === 'number' && !Number.isNaN(raw[1])
+              ? raw[1]
+              : null
+            : typeof raw === 'number' && !Number.isNaN(raw)
+              ? raw
+              : null;
+          return `${marker} ${p.seriesName}: ${num == null ? '—' : num.toLocaleString()}`;
         })
         .filter(Boolean);
       return `${date}<br/>${rows.join('<br/>')}`;
@@ -194,7 +241,19 @@ export function buildPriceChartOption(
     top: 0,
   };
 
-  const dataZoom: EChartsOption['dataZoom'] = [{ type: 'inside' }];
+  // xAxisIndex links the main chart and the volume sub-chart so zoom/pan on
+  // one drives both (otherwise volume stays fixed while the price scrolls).
+  const dataZoom: EChartsOption['dataZoom'] = [
+    { type: 'inside', xAxisIndex: hasVolume ? [0, 1] : [0] },
+  ];
+
+  // Shared category axis config. boundaryGap defaults to true so candlestick
+  // bars sit centered on their slot and bar/volume render correctly.
+  const categoryAxis = {
+    type: 'category' as const,
+    data: tradingDays,
+    axisLabel: { hideOverlap: true },
+  };
 
   if (hasVolume) {
     // Dual grid: main chart (top ~58%) + volume (bottom ~18%), shared x.
@@ -206,8 +265,8 @@ export function buildPriceChartOption(
         { left: 48, right: 24, top: '74%', height: '18%' },
       ],
       xAxis: [
-        { type: 'time', gridIndex: 0 },
-        { type: 'time', gridIndex: 1, axisLabel: { show: false } },
+        { ...categoryAxis, gridIndex: 0 },
+        { ...categoryAxis, gridIndex: 1, axisLabel: { show: false } },
       ],
       yAxis: [
         { type: 'value', scale: true, gridIndex: 0 },
@@ -223,7 +282,7 @@ export function buildPriceChartOption(
     tooltip,
     legend,
     grid: { left: 48, right: 24, top: 32, bottom: 32 },
-    xAxis: { type: 'time' },
+    xAxis: { ...categoryAxis },
     yAxis: { type: 'value', scale: true },
     dataZoom,
     series,
