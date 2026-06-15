@@ -166,7 +166,9 @@ export function buildPriceChartOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      lineStyle: { color: MA5_COLOR, width: 1 },
+      lineStyle: { color: MA5_COLOR, width: 2 },
+      itemStyle: { color: MA5_COLOR },
+      z: 10,
       data: calcMA(closesForMA, 5),
     });
   }
@@ -176,7 +178,9 @@ export function buildPriceChartOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      lineStyle: { color: MA20_COLOR, width: 1 },
+      lineStyle: { color: MA20_COLOR, width: 2 },
+      itemStyle: { color: MA20_COLOR },
+      z: 10,
       data: calcMA(closesForMA, 20),
     });
   }

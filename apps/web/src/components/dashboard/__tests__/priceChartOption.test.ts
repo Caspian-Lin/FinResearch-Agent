@@ -199,6 +199,24 @@ describe('buildPriceChartOption — MA overlays (FRA-24)', () => {
     expect(series.some((s) => s.name === 'MA5')).toBe(true);
   });
 
+  it('ma.ma5 yields non-null MA values from the 5th bar onward (candle mode)', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = Array.from({ length: 6 }, (_, i) =>
+      makeBar({
+        time: `2024-01-0${i + 2}T00:00:00Z`,
+        close: 10 + i,
+        adjusted_close: 10 + i,
+      }),
+    );
+    const option = buildPriceChartOption(bars, t, { chartType: 'candle', ma: { ma5: true } });
+    const ma = (option.series as { name: string; data: (number | null)[] }[]).find(
+      (s) => s.name === 'MA5',
+    );
+    expect(ma?.data[3]).toBeNull(); // not enough data yet
+    expect(ma?.data[4]).toBe(12); // avg(10,11,12,13,14)
+    expect(ma?.data[5]).toBe(13); // avg(11,12,13,14,15)
+  });
+
   it('legend excludes the volume bar series', () => {
     const t = i18n.getFixedT('en', 'dashboard');
     const bars = [makeBar({ volume: 5000 })];
