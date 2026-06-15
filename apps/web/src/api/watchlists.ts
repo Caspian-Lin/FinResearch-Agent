@@ -8,10 +8,14 @@
 import { apiClient, type ApiError } from './client';
 import type { WatchlistRead } from '@/types/api';
 
-/** `GET /watchlists` → all of the caller's watchlists with their items. */
+/** `GET /watchlists` → all of the caller's watchlists with their items.
+ *
+ * The backend returns a bare JSON array (`response_model=list[WatchlistRead]`),
+ * NOT `{ items: [...] }` — return `data` directly. Treating it as `{items}`
+ * silently set watchlists to `undefined` and crashed the page. */
 export async function listWatchlists(): Promise<WatchlistRead[]> {
-  const { data } = await apiClient.get<{ items: WatchlistRead[] }>('/watchlists');
-  return data.items;
+  const { data } = await apiClient.get<WatchlistRead[]>('/watchlists');
+  return data;
 }
 
 /** `POST /watchlists` → create a new watchlist. 409 on duplicate name. */
