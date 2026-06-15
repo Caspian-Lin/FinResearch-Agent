@@ -64,10 +64,6 @@ function hasOhlc(b: OhlcvRead): b is OhlcBar {
   return b.open != null && b.close != null && b.high != null && b.low != null;
 }
 
-function fmtNum(v: number | null | undefined): string {
-  return v == null ? '—' : v.toLocaleString();
-}
-
 /**
  * Simple moving average over a (possibly sparse) series. Returns one value per
  * input: null for the first `period-1` entries (not enough data) and for any
@@ -166,7 +162,7 @@ export function buildPriceChartOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      lineStyle: { color: MA5_COLOR, width: 2 },
+      lineStyle: { color: MA5_COLOR, width: 1 },
       itemStyle: { color: MA5_COLOR },
       z: 10,
       data: calcMA(closesForMA, 5),
@@ -178,7 +174,7 @@ export function buildPriceChartOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      lineStyle: { color: MA20_COLOR, width: 2 },
+      lineStyle: { color: MA20_COLOR, width: 1 },
       itemStyle: { color: MA20_COLOR },
       z: 10,
       data: calcMA(closesForMA, 20),
@@ -204,39 +200,12 @@ export function buildPriceChartOption(
 
   // Tooltip: the category axis gives us the date as `params.name`; candle rows
   // unpack [open, close, low, high], other rows show a single value.
+  // Built-in axis tooltip: echarts formats each series itself (OHLC for
+  // candlestick, value for line/MA/volume) and shows the category label (the
+  // trading day). A custom formatter kept mis-reading echarts' reshaped
+  // `value`/`data` on the category axis and showed "—" for every series.
   const tooltip: EChartsOption['tooltip'] = {
     trigger: 'axis',
-    formatter: (params) => {
-      const arr = Array.isArray(params) ? params : [params];
-      const first = arr[0];
-      const dateStr = first?.name ?? '';
-      if (!dateStr) return '';
-      const date = dayjs(dateStr).format('LL');
-      const rows = arr
-        .map((p) => {
-          const marker = (p.marker ?? '') as string;
-          if (p.seriesType === 'candlestick') {
-            // echarts reorders `value` internally; read the original data tuple
-            // [open, close, low, high] we passed in via `p.data` instead.
-            const d = (p as { data?: unknown }).data;
-            const tuple = Array.isArray(d) ? (d as number[]) : [];
-            const [o, c, l, h] = tuple;
-            return `${marker} ${p.seriesName}<br/>O ${fmtNum(o)} | H ${fmtNum(h)} | L ${fmtNum(l)} | C ${fmtNum(c)}`;
-          }
-          const raw = (p as { value?: unknown }).value;
-          // Treat null AND NaN (echarts reports missing line points as NaN) as gaps.
-          const num: number | null = Array.isArray(raw)
-            ? typeof raw[1] === 'number' && !Number.isNaN(raw[1])
-              ? raw[1]
-              : null
-            : typeof raw === 'number' && !Number.isNaN(raw)
-              ? raw
-              : null;
-          return `${marker} ${p.seriesName}: ${num == null ? '—' : num.toLocaleString()}`;
-        })
-        .filter(Boolean);
-      return `${date}<br/>${rows.join('<br/>')}`;
-    },
   };
 
   // legend lists main + MA only (volume sub-chart stays out of the legend).
