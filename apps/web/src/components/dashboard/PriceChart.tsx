@@ -1,11 +1,12 @@
 /**
- * Price chart (FRA-11).
+ * Price chart (FRA-11, extended FRA-24).
  *
- * Renders an OHLCV price line via echarts-for-react. The price field is
- * `adjusted_close`, falling back to `close` per-bar when `adjusted_close` is
- * null; bars where both are null are emitted as gaps (null y) so the line
- * breaks instead of interpolating across missing data. See
- * `priceChartOption.ts` for the (pure, exported, unit-tested) option builder.
+ * Renders OHLCV via echarts-for-react in one of three styles — line /
+ * candlestick / area — with an optional volume sub-chart and MA5/MA20 overlays.
+ * The option is built by the pure, unit-tested `buildPriceChartOption`.
+ *
+ * The parent owns chart-type / volume / MA / adjust state (these only affect
+ * rendering, never re-fetch) and passes them down as props.
  *
  * Language responsiveness: the parent passes the active `language` as `key` so a
  * language change remounts the chart with a freshly-translated option (echarts
@@ -20,19 +21,39 @@ import { useTranslation } from 'react-i18next';
 import type { OhlcvRead } from '@/types/api';
 import { useLanguage } from '@/i18n/useLanguage';
 import { buildPriceChartOption } from './priceChartOption';
+import type { Adjust, ChartType } from './priceChartOption';
 
 interface PriceChartProps {
   bars: OhlcvRead[];
   loading: boolean;
   /** Stable ApiError code (e.g. "notFound"); the backend detail is never shown. */
   errorCode: string | null;
+  /** Main chart style; defaults to line via the builder. */
+  chartType?: ChartType;
+  /** Whether to render the volume sub-chart. */
+  showVolume?: boolean;
+  /** Moving-average overlays. */
+  ma?: { ma5?: boolean; ma20?: boolean };
+  /** Price source for line/area (no effect on candle). */
+  adjust?: Adjust;
 }
 
-export function PriceChart({ bars, loading, errorCode }: PriceChartProps) {
+export function PriceChart({
+  bars,
+  loading,
+  errorCode,
+  chartType,
+  showVolume,
+  ma,
+  adjust,
+}: PriceChartProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
 
-  const option = useMemo(() => buildPriceChartOption(bars, t), [bars, t]);
+  const option = useMemo(
+    () => buildPriceChartOption(bars, t, { chartType, showVolume, ma, adjust }),
+    [bars, t, chartType, showVolume, ma, adjust],
+  );
 
   if (loading) {
     // Fixed 360px placeholder matches the rendered chart height below, so

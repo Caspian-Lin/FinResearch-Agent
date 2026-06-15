@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { buildPriceChartOption } from '@/components/dashboard/priceChartOption';
+import { buildPriceChartOption, calcMA } from '@/components/dashboard/priceChartOption';
 import i18n from '@/i18n';
 import type { OhlcvRead } from '@/types/api';
 
@@ -117,5 +117,153 @@ describe('buildPriceChartOption', () => {
     const option = buildPriceChartOption([makeBar()], t);
     const series = option.series as [{ connectNulls: boolean }];
     expect(series[0].connectNulls).toBe(false);
+  });
+});
+
+describe('buildPriceChartOption — chart types (FRA-24)', () => {
+  it('candlestick: series[0] is candlestick with [ts, open, close, low, high] tuples', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [
+      makeBar({ time: '2024-01-02T00:00:00Z', open: 10, close: 12, high: 13, low: 9 }),
+    ];
+    const option = buildPriceChartOption(bars, t, { chartType: 'candle' });
+    const series = option.series as [
+      { type: string; data: [number, number, number, number, number][] },
+    ];
+    expect(series[0].type).toBe('candlestick');
+    expect(series[0].data[0]).toEqual([
+      new Date('2024-01-02T00:00:00Z').getTime(),
+      10, // open
+      12, // close
+      9, // low
+      13, // high
+    ]);
+  });
+
+  it('candlestick: skips bars with any null OHLC', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [
+      makeBar({ time: '2024-01-02T00:00:00Z', open: 10, close: 12, high: 13, low: 9 }),
+      makeBar({ time: '2024-01-03T00:00:00Z', open: null, close: 12, high: 13, low: 9 }),
+    ];
+    const option = buildPriceChartOption(bars, t, { chartType: 'candle' });
+    const series = option.series as [{ data: unknown[] }];
+    expect(series[0].data).toHaveLength(1);
+  });
+
+  it('area: line series carries an areaStyle', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const option = buildPriceChartOption([makeBar()], t, { chartType: 'area' });
+    const series = option.series as [{ type: string; areaStyle?: unknown }];
+    expect(series[0].type).toBe('line');
+    expect(series[0].areaStyle).toBeDefined();
+  });
+});
+
+describe('buildPriceChartOption — volume sub-chart (FRA-24)', () => {
+  it('showVolume adds a second grid + a bar series on gridIndex 1', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [makeBar({ volume: 5000 })];
+    const option = buildPriceChartOption(bars, t, { showVolume: true });
+    expect(Array.isArray(option.grid)).toBe(true);
+    expect((option.grid as unknown[]).length).toBe(2);
+    const series = option.series as { type: string; xAxisIndex?: number }[];
+    const volSeries = series.find((s) => s.type === 'bar');
+    expect(volSeries).toBeDefined();
+    expect(volSeries?.xAxisIndex).toBe(1);
+  });
+
+  it('default (no opts) keeps a single grid + no bar series', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [makeBar({ volume: 5000 })];
+    const option = buildPriceChartOption(bars, t);
+    expect(Array.isArray(option.grid)).toBe(false);
+    const series = option.series as { type: string }[];
+    expect(series.some((s) => s.type === 'bar')).toBe(false);
+  });
+
+  it('volume is omitted when every bar has null volume even with showVolume=true', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [makeBar({ volume: null })];
+    const option = buildPriceChartOption(bars, t, { showVolume: true });
+    expect(Array.isArray(option.grid)).toBe(false);
+  });
+});
+
+describe('buildPriceChartOption — MA overlays (FRA-24)', () => {
+  it('ma.ma5 adds an MA5 line series', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = Array.from({ length: 6 }, (_, i) =>
+      makeBar({
+        time: `2024-01-0${i + 2}T00:00:00Z`,
+        close: 10 + i,
+        adjusted_close: 10 + i,
+      }),
+    );
+    const option = buildPriceChartOption(bars, t, { ma: { ma5: true } });
+    const series = option.series as { name: string; type: string }[];
+    expect(series.some((s) => s.name === 'MA5')).toBe(true);
+  });
+
+  it('legend excludes the volume bar series', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [makeBar({ volume: 5000 })];
+    const option = buildPriceChartOption(bars, t, { showVolume: true, ma: { ma20: true } });
+    const legend = option.legend as { data: string[] };
+    expect(legend.data).not.toContain('Volume');
+  });
+});
+
+describe('buildPriceChartOption — adjust toggle (FRA-24)', () => {
+  it('adjust=raw uses close instead of adjusted_close for line', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [makeBar({ time: '2024-01-02T00:00:00Z', close: 40, adjusted_close: 99 })];
+    const option = buildPriceChartOption(bars, t, { adjust: 'raw' });
+    const series = option.series as [{ data: [number, number | null][] }];
+    expect(series[0].data[0][1]).toBe(40);
+  });
+
+  it('adjust has no effect on candlestick (always raw OHLC)', () => {
+    const t = i18n.getFixedT('en', 'dashboard');
+    const bars = [
+      makeBar({
+        time: '2024-01-02T00:00:00Z',
+        open: 10,
+        close: 11,
+        high: 12,
+        low: 9,
+        adjusted_close: 99,
+      }),
+    ];
+    const optionRaw = buildPriceChartOption(bars, t, { chartType: 'candle', adjust: 'raw' });
+    const optionAdj = buildPriceChartOption(bars, t, {
+      chartType: 'candle',
+      adjust: 'adjusted',
+    });
+    const sRaw = (optionRaw.series as [
+      { data: [number, number, number, number, number][] },
+    ])[0];
+    const sAdj = (optionAdj.series as [
+      { data: [number, number, number, number, number][] },
+    ])[0];
+    expect(sRaw.data).toEqual(sAdj.data);
+  });
+});
+
+describe('calcMA (FRA-24)', () => {
+  it('returns the running average, null for the first period-1 entries', () => {
+    expect(calcMA([1, 2, 3, 4, 5], 3)).toEqual([null, null, 2, 3, 4]);
+  });
+
+  it('returns null for any window containing a null', () => {
+    expect(calcMA([1, null, 3, 4, 5], 3)).toEqual([null, null, null, null, 4]);
+  });
+
+  it('returns all nulls when data is shorter than the period', () => {
+    expect(calcMA([1, 2], 5)).toEqual([null, null]);
+  });
+
+  it('returns an empty array for empty input', () => {
+    expect(calcMA([], 3)).toEqual([]);
   });
 });
