@@ -92,8 +92,12 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     renderLogin();
     await user.click(screen.getByRole('button', { name: /sign in/i }));
-    // antd renders the validation message text from `errors:validation`.
-    expect(await screen.findByText(/some fields are invalid/i)).toBeInTheDocument();
+    // antd renders one validation message per failing rule; on an empty submit
+    // email (required + type:email) and password (required) can each emit
+    // `errors:validation`, so expect at least one (not exactly one). CI's antd
+    // renders more of these than local jsdom, hence findAllByText.
+    const validationErrors = await screen.findAllByText(/some fields are invalid/i);
+    expect(validationErrors.length).toBeGreaterThanOrEqual(1);
     expect(mocks.loginApi).not.toHaveBeenCalled();
   });
 
