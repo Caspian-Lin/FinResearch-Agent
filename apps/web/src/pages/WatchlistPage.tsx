@@ -16,6 +16,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import {
   Alert,
@@ -66,6 +67,7 @@ function run(task: () => Promise<unknown>): () => void {
 function WatchlistPage() {
   const { t } = useTranslation(['watchlist', 'errors', 'common']);
   const [messageApi, messageContext] = message.useMessage();
+  const navigate = useNavigate();
 
   const { watchlists, loading, error, clearError, refresh, create, remove, addAsset, removeAsset } =
     useWatchlists();
@@ -210,6 +212,7 @@ function WatchlistPage() {
       name: item.name,
     });
     messageApi.success(t('watchlist:selectForDashboard', { symbol: item.symbol }));
+    navigate('/dashboard');
   }
 
   // --- Table columns ----------------------------------------------------------

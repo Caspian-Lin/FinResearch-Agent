@@ -11,6 +11,7 @@ import App from './App';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import WatchlistPage from '@/pages/WatchlistPage';
+import DashboardPage from '@/pages/DashboardPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -25,12 +26,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
           {/* Protected routes — guarded by ProtectedRoute. */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Navigate to="/watchlist" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/watchlist" element={<WatchlistPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
           </Route>
 
-          {/* Unknown paths funnel toward the (protected) watchlist. */}
-          <Route path="*" element={<Navigate to="/watchlist" replace />} />
+          {/* Unknown paths funnel toward the (protected) dashboard. */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

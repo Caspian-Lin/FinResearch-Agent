@@ -3,7 +3,7 @@
  *
  * Dashboard / overview page strings. Numbers are formatted at runtime via
  * Intl/locale-aware helpers, never inlined here. Financial abbreviations
- * (OHLCV, ETF, Sharpe, NASDAQ) kept as-is.
+ * (OHLCV, ETF, Sharpe, NASDAQ) and source codes (yfinance) kept as-is.
  */
 
 const dashboard = {
@@ -31,6 +31,84 @@ const dashboard = {
     /** Interpolation: {{start}}, {{end }} */
     range: '{{start}} → {{end}}',
   },
+
+  page: {
+    title: 'Dashboard',
+  },
+
+  noSelection: {
+    message: 'Select an asset from your watchlist to view its dashboard.',
+    link: 'Go to watchlist',
+  },
+
+  filters: {
+    source: 'Source',
+    dateRange: 'Date range',
+  },
+
+  priceChart: {
+    title: 'Price',
+    field: {
+      adjustedClose: 'Adjusted close',
+      close: 'Close',
+    },
+    /** Note shown under the chart explaining the close-price fallback. */
+    fallbackNote: 'Adjusted close, falling back to close when missing.',
+    noData: 'No price data for the selected window.',
+  },
+
+  quality: {
+    title: 'Data quality',
+    coverage: 'Coverage',
+    expected: 'Expected sessions',
+    observed: 'Observed sessions',
+    missing: {
+      title: 'Missing sessions',
+      /** Interpolation: {{count}} — how many more are hidden. */
+      more: '+{{count}} more',
+    },
+    anomalies: {
+      title: 'Anomalies',
+      /** Interpolation: {{count}}. */
+      count: '{{count}} detected',
+      empty: 'No anomalies detected.',
+    },
+    rules: {
+      non_positive_price: 'Non-positive price',
+      high_lt_low: 'High below low',
+      negative_volume: 'Negative volume',
+      zero_volume: 'Zero volume',
+      large_return: 'Abnormally large return',
+    },
+  },
+
+  sync: {
+    button: 'Sync data',
+    status: {
+      pending: 'Queued…',
+      running: 'Syncing…',
+      success: 'Sync complete. Refreshing data…',
+      failed: 'Sync failed.',
+    },
+    /** Shown when the poll cap is reached without a terminal status. */
+    timeout: 'Sync is taking longer than expected. Please check back later.',
+    limit: {
+      /** Shown when the chosen window exceeds the 1825-day backend limit. */
+      window: 'The selected window exceeds the 1825-day sync limit.',
+    },
+  },
+
+  /**
+   * Data-limitations notice. Per AGENTS.md financial-safety requirements this
+   * must be presented fully and honestly in both languages; not investment
+   * advice.
+   */
+  dataLimit: {
+    title: 'Data limitations',
+    body: 'Market data is sourced from yfinance and may be delayed or incomplete. Quality statistics are computed against each exchange’s published trading calendar and are intended as a data-health reference only. Coverage and anomaly figures are indicative, not exhaustive. This is not investment advice.',
+  },
+
+  loading: 'Loading…',
 } as const;
 
 export default dashboard;

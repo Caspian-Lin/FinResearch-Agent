@@ -65,3 +65,104 @@ export interface TokenResponse {
   token_type: string;
   expires_in: number;
 }
+
+/**
+ * A single OHLCV bar (FRA-15 `OhlcvRead`).
+ *
+ * `time` is an ISO datetime in UTC. Price/volume fields are nullable: the
+ * backend stores raw bars which may be partially populated (e.g. an ETF with
+ * no reported volume). The view layer decides how to fill gaps (see PriceChart:
+ * `adjusted_close ?? close`).
+ */
+export interface OhlcvRead {
+  asset_id: string;
+  time: string;
+  source: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  adjusted_close: number | null;
+  volume: number | null;
+}
+
+/**
+ * One keyset-paginated page of OHLCV (FRA-15).
+ *
+ * `next_cursor` is opaque (forwarded verbatim); `has_more` is the authoritative
+ * "are there more pages" signal. The aggregator in `api/ohlcv` follows the
+ * cursor until `has_more` is false.
+ */
+export interface OhlcvPage {
+  items: OhlcvRead[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+/**
+ * A single detected data anomaly for an OHLCV bar (FRA-9 `AnomalyPoint`).
+ *
+ * `rule` is one of a fixed enum of quality rules. `detail` is backend freeform
+ * text; it is shown verbatim (untranslated) since it is computed/rule-specific
+ * rather than user-facing copy.
+ */
+export interface AnomalyPoint {
+  time: string;
+  rule: string;
+  detail: string | null;
+}
+
+/**
+ * Quality report for an asset/window (FRA-9 `QualityReport`).
+ *
+ * `coverage` is a 0..1 ratio (observed / expected trading sessions).
+ * `missing_sessions` are ISO dates (calendar, not datetime). `anomalies` lists
+ * rule violations found within the window.
+ */
+export interface QualityReport {
+  asset_id: string;
+  source: string;
+  start: string;
+  end: string;
+  expected_sessions: number;
+  observed_sessions: number;
+  missing_sessions_count: number;
+  coverage: number;
+  missing_sessions: string[];
+  anomalies: AnomalyPoint[];
+}
+
+/**
+ * `POST /sync` 202 response (FRA-8). The job runs asynchronously; poll
+ * `getSyncJob(job_id)` for terminal status.
+ */
+export interface SyncEnqueueResponse {
+  job_id: string;
+  status: string;
+  asset_id: string;
+  start: string;
+  end: string;
+  source: string;
+}
+
+/** Lifecycle status of a sync job (FRA-8). */
+export type SyncJobStatus = 'pending' | 'running' | 'success' | 'failed';
+
+/**
+ * A sync job snapshot (FRA-8 `GET /sync/{job_id}`).
+ *
+ * On terminal failure `error` carries a sanitized `{ type, message }` pair; the
+ * `message` is short (<200 chars) and safe to surface to users (unlike generic
+ * API `detail`, which is debug-only).
+ */
+export interface SyncJob {
+  job_id: string;
+  status: SyncJobStatus;
+  asset_id: string | null;
+  start: string | null;
+  end: string | null;
+  source: string | null;
+  inserted: number | null;
+  updated: number | null;
+  error: { type: string; message: string } | null;
+}

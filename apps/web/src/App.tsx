@@ -21,14 +21,25 @@
  *    unauthenticated → "Sign in" button; loading → small spinner placeholder.
  */
 import { useEffect } from 'react';
-import { ConfigProvider, Layout, Typography, Tag, theme, Alert, Button, Dropdown, Spin } from 'antd';
+import {
+  ConfigProvider,
+  Layout,
+  Typography,
+  Tag,
+  theme,
+  Alert,
+  Button,
+  Dropdown,
+  Menu,
+  Spin,
+} from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn';
 import { useTranslation } from 'react-i18next';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { MenuProps } from 'antd';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -43,6 +54,7 @@ function App() {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const status = useAuthStore((s) => s.status);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -75,6 +87,11 @@ function App() {
       setUnauthorizedHandler(null);
     };
   }, [navigate]);
+
+  const navItems: MenuProps['items'] = [
+    { key: '/dashboard', label: t('common:nav.dashboard') },
+    { key: '/watchlist', label: t('common:nav.watchlist') },
+  ];
 
   const userMenuItems: MenuProps['items'] = [
     {
@@ -111,6 +128,14 @@ function App() {
             {t('common:appName')}
           </Title>
           <Tag color="blue">{t('common:version')}</Tag>
+          <Menu
+            theme="dark"
+            mode="horizontal"
+            selectedKeys={[location.pathname]}
+            items={navItems}
+            style={{ minWidth: 200, marginLeft: 8, background: 'transparent' }}
+            onClick={({ key }) => navigate(key)}
+          />
           <div
             style={{
               marginLeft: 'auto',
