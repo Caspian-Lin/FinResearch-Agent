@@ -8,7 +8,11 @@ added by later issues. See ``docs/backtesting-methodology.md`` §接口契约.
 from app.services.backtest.engine import run_backtest
 from app.services.backtest.prices import load_prices
 from app.services.backtest.protocols import BacktestEngine, Strategy
-from app.services.backtest.strategies import BuyAndHoldStrategy, EqualWeightStrategy, MACrossoverStrategy
+from app.services.backtest.strategies import (
+    BuyAndHoldStrategy,
+    EqualWeightStrategy,
+    MACrossoverStrategy,
+)
 from app.services.backtest.types import (
     BacktestConfig,
     BacktestMetrics,
