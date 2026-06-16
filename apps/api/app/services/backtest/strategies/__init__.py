@@ -7,8 +7,10 @@
 
 from app.services.backtest.strategies.buy_hold import BuyAndHoldStrategy
 from app.services.backtest.strategies.equal_weight import EqualWeightStrategy
+from app.services.backtest.strategies.ma_crossover import MACrossoverStrategy
 
 __all__ = [
     "BuyAndHoldStrategy",
     "EqualWeightStrategy",
+    "MACrossoverStrategy",
 ]
