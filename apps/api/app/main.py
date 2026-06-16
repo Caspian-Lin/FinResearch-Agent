@@ -1,7 +1,8 @@
 """FastAPI application entry point.
 
-Week 1 stub: mounts the health endpoint and CORS middleware. Real routers
-(auth, assets, ohlcv, etc.) will be added incrementally in later weeks.
+Mounts CORS middleware, the ``/health`` and ``/`` meta endpoints, and the
+Week 1 routers: auth, assets, ohlcv, quality, sync, and watchlists. Later
+weeks add backtesting, factor, agent, and report routers.
 """
 
 from __future__ import annotations
