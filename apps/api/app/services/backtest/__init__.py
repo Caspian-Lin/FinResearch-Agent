@@ -12,6 +12,8 @@ from app.services.backtest.strategies import (
     BuyAndHoldStrategy,
     EqualWeightStrategy,
     MACrossoverStrategy,
+    MomentumStrategy,
+    ReversalStrategy,
 )
 from app.services.backtest.types import (
     BacktestConfig,
@@ -30,8 +32,10 @@ __all__ = [
     "BuyAndHoldStrategy",
     "EqualWeightStrategy",
     "MACrossoverStrategy",
+    "MomentumStrategy",
     "PriceField",
     "RebalanceFreq",
+    "ReversalStrategy",
     "Strategy",
     "Trade",
     "load_prices",
