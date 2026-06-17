@@ -13,7 +13,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BacktestRunRead(BaseModel):
@@ -88,3 +88,56 @@ class TradeRead(BaseModel):
     price: Decimal
     cost: Decimal
     created_at: datetime
+
+
+# --- FRA-36: backtest API request / response schemas -----------------------
+
+
+class BacktestCreateRequest(BaseModel):
+    """Payload for ``POST /backtest``.
+
+    ``universe`` is a non-empty list of asset UUIDs (validated to exist);
+    ``strategy_name`` must be a registered strategy; ``benchmark_asset_id`` is
+    optional but, if given, must reference an existing asset. ``config_json``
+    stores the full snapshot for reproducibility (§11.3 第 6 条).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    strategy_name: str
+    universe: list[uuid.UUID] = Field(min_length=1)
+    start: date
+    end: date
+    benchmark_asset_id: uuid.UUID | None = None
+    initial_capital: float = Field(default=100_000.0, gt=0)
+    cost_bps: float = Field(default=0.0, ge=0)
+    rebalance: str = "daily"  # daily | weekly | monthly
+    price_field: str = "adjusted"  # raw | adjusted
+    strategy_params: dict[str, Any] = Field(default_factory=dict)
+
+
+class BacktestEnqueueResponse(BaseModel):
+    """202 response after a backtest run is created + enqueued."""
+
+    run_id: uuid.UUID
+    status: str = "pending"
+
+
+class BacktestDetailRead(BaseModel):
+    """Full result for ``GET /backtest/{run_id}``: run + metrics + curves.
+
+    ``equity_curve`` holds both ``strategy`` and ``benchmark`` points
+    (distinguished by ``series_kind``, FRA-41); empty until the worker finishes.
+    """
+
+    run: BacktestRunRead
+    metrics: BacktestMetricsRead | None = None
+    equity_curve: list[EquityCurvePointRead] = Field(default_factory=list)
+
+
+class BacktestListResponse(BaseModel):
+    """Paginated list of the caller's runs (``GET /backtest``)."""
+
+    items: list[BacktestRunRead]
+    total: int
