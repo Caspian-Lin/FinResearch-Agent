@@ -33,6 +33,9 @@ from app.db.base import Base
 PRICE_FIELDS = ("raw", "adjusted")
 #: allowed values for ``BacktestRun.status`` (mirrors the Week 1 sync-job states).
 BACKTEST_STATUSES = ("pending", "running", "success", "failed")
+#: allowed values for ``EquityCurvePoint.series_kind`` (FRA-41) — distinguishes the
+#: strategy's own curve from the buy & hold benchmark curve stored in the same table.
+SERIES_KINDS = ("strategy", "benchmark")
 
 
 class BacktestRun(Base):
@@ -108,15 +111,20 @@ class BacktestMetrics(Base):
 class EquityCurvePoint(Base):
     """One daily point of a run's equity curve (hypertable, partitioned by time).
 
-    Composite PK ``(backtest_run_id, time)`` both identifies the run's curve
-    and satisfies the hypertable requirement that the partition column (``time``)
-    be part of the PK — the same pattern as ``ohlcv``.
+    Composite PK ``(backtest_run_id, series_kind, time)`` identifies a run's curve
+    and lets the buy & hold ``benchmark`` curve coexist with the ``strategy`` curve
+    in the same table (FRA-41) — one row per (run, kind, day). The partition column
+    ``time`` remains part of the PK (the ``ohlcv`` pattern).
     """
 
     __tablename__ = "equity_curve"
 
     backtest_run_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("backtest_runs.id"), primary_key=True
+    )
+    # strategy = the run's own curve; benchmark = the buy & hold reference (FRA-41).
+    series_kind: Mapped[str] = mapped_column(
+        String(16), primary_key=True, nullable=False, default="strategy", server_default="strategy"
     )
     time: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     equity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)

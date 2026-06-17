@@ -252,6 +252,41 @@ def test_equity_curve_points(db_session: Session) -> None:
     assert rows[0].equity == Decimal("100000")
     assert rows[0].daily_return is None  # first day has no prior return
     assert rows[2].equity == Decimal("100200")
+    assert all(r.series_kind == "strategy" for r in rows)  # default (FRA-41)
+
+
+def test_equity_curve_strategy_and_benchmark_coexist(db_session: Session) -> None:
+    """三列 PK (run_id, series_kind, time):同 run 同时刻并存 strategy + benchmark(FRA-41)。"""
+    user = _make_user(db_session, "U6")
+    run = _make_run(db_session, user, name="FRA26TEST-coexist")
+    day = datetime(2022, 1, 3, tzinfo=UTC)
+    for kind in ("strategy", "benchmark"):
+        db_session.add(
+            EquityCurvePoint(
+                backtest_run_id=run.id,
+                series_kind=kind,
+                time=day,
+                equity=Decimal("100000"),
+                daily_return=Decimal("0.01"),
+                drawdown=Decimal("0"),
+            )
+        )
+    db_session.commit()
+
+    rows = db_session.scalars(
+        select(EquityCurvePoint).where(EquityCurvePoint.backtest_run_id == run.id)
+    ).all()
+    assert len(rows) == 2  # 不冲突:series_kind 区分
+    assert {r.series_kind for r in rows} == {"strategy", "benchmark"}
+
+    # 按 series_kind 过滤查 benchmark 曲线。
+    bench = db_session.scalars(
+        select(EquityCurvePoint).where(
+            EquityCurvePoint.backtest_run_id == run.id,
+            EquityCurvePoint.series_kind == "benchmark",
+        )
+    ).all()
+    assert len(bench) == 1
 
 
 # ---------------------------------------------------------------------------

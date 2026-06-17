@@ -16,6 +16,7 @@ from app.services.backtest.metrics import (
     compute_risk_metrics,
     to_metrics_orm,
 )
+from app.services.backtest.persistence import build_equity_curve_points
 from app.services.backtest.prices import load_prices
 from app.services.backtest.protocols import BacktestEngine, Strategy
 from app.services.backtest.strategies import (
@@ -49,6 +50,7 @@ __all__ = [
     "ReversalStrategy",
     "Strategy",
     "Trade",
+    "build_equity_curve_points",
     "compute_benchmark_comparison",
     "compute_result_metrics",
     "compute_risk_metrics",
