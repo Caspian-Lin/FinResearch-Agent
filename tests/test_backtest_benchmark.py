@@ -84,6 +84,7 @@ def _result(
         daily_returns=daily_returns,
         turnover=turnover,
         positions=positions,
+        gross_returns=daily_returns,
         trades=[],
         metrics=None,
     )

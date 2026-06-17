@@ -11,6 +11,11 @@ from app.services.backtest.benchmark import (
     load_benchmark_prices,
 )
 from app.services.backtest.engine import run_backtest
+from app.services.backtest.metrics import (
+    compute_result_metrics,
+    compute_risk_metrics,
+    to_metrics_orm,
+)
 from app.services.backtest.prices import load_prices
 from app.services.backtest.protocols import BacktestEngine, Strategy
 from app.services.backtest.strategies import (
@@ -45,7 +50,10 @@ __all__ = [
     "Strategy",
     "Trade",
     "compute_benchmark_comparison",
+    "compute_result_metrics",
+    "compute_risk_metrics",
     "load_benchmark_prices",
     "load_prices",
     "run_backtest",
+    "to_metrics_orm",
 ]

@@ -57,10 +57,11 @@ def run_backtest(
     Returns
     -------
     BacktestResult
-        net 口径:``equity_curve`` / ``daily_returns`` 为扣除成本后的序列;
-        ``turnover`` 为每日换手(单边 |Δw| 之和);``positions`` 为每日持仓权重;
-        ``trades`` 为每个换仓日逐资产的权重变动记录;``metrics`` 恒为
-        ``None``(由 risk-metrics issue 填充)。
+        含 gross / net 双口径日收益:``gross_returns`` 为成本前(holdings ×
+        asset_returns),``daily_returns`` 为扣除 ``cost_bps`` 后的 net;
+        ``equity_curve`` 由 net 累积。``turnover`` 为每日换手(单边 |Δw| 之和);
+        ``positions`` 为每日持仓权重;``trades`` 为每个换仓日逐资产的权重变动
+        记录;``metrics`` 恒为 ``None``(由 risk-metrics issue 填充)。
 
     Raises
     ------
@@ -122,6 +123,7 @@ def run_backtest(
         daily_returns=net,
         turnover=turnover,
         positions=holdings,
+        gross_returns=gross,
         trades=trades,
         metrics=None,
     )
