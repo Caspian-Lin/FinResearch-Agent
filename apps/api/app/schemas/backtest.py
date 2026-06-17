@@ -66,6 +66,7 @@ class EquityCurvePointRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     backtest_run_id: uuid.UUID
+    series_kind: str
     time: datetime
     equity: Decimal
     daily_return: Decimal | None
