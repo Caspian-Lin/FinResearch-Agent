@@ -124,15 +124,22 @@ class BacktestResult:
     """Output of ``BacktestEngine.run``.
 
     All time-indexed series share the UTC-midnight ``DatetimeIndex`` defined in
-    the price-DataFrame convention. ``metrics`` is ``None`` until the
-    risk-metrics issue computes it; callers must treat a missing ``metrics`` as
-    "not yet evaluated" rather than zero.
+    the price-DataFrame convention. Two parallel return series capture the
+    §11.3 第 5 条 pre/post-cost comparison: ``gross_returns`` (before
+    ``cost_bps``) and ``daily_returns`` (net, after cost; ``equity_curve`` is
+    accumulated from it). ``metrics`` is ``None`` until the risk-metrics issue
+    computes it; callers must treat a missing ``metrics`` as "not yet
+    evaluated" rather than zero.
     """
 
     config: BacktestConfig
     equity_curve: pd.Series
+    # net 口径:扣除 ``cost_bps`` 后的日收益;equity_curve 基于它累积。
     daily_returns: pd.Series
     turnover: pd.Series
     positions: pd.DataFrame
+    # gross 口径:成本前的日收益(holdings × asset_returns);与 daily_returns(net)
+    # 配对,支撑 §11.3 第 5 条「成本前后对比」。risk-metrics 据此算 gross_*。
+    gross_returns: pd.Series
     trades: list[Trade] = field(default_factory=list)
     metrics: BacktestMetrics | None = None
