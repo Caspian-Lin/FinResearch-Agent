@@ -5,6 +5,11 @@ Week 2 foundation: typed interfaces (FRA-25) plus the price-series reader
 added by later issues. See ``docs/backtesting-methodology.md`` §接口契约.
 """
 
+from app.services.backtest.benchmark import (
+    BenchmarkComparison,
+    compute_benchmark_comparison,
+    load_benchmark_prices,
+)
 from app.services.backtest.engine import run_backtest
 from app.services.backtest.prices import load_prices
 from app.services.backtest.protocols import BacktestEngine, Strategy
@@ -29,6 +34,7 @@ __all__ = [
     "BacktestEngine",
     "BacktestMetrics",
     "BacktestResult",
+    "BenchmarkComparison",
     "BuyAndHoldStrategy",
     "EqualWeightStrategy",
     "MACrossoverStrategy",
@@ -38,6 +44,8 @@ __all__ = [
     "ReversalStrategy",
     "Strategy",
     "Trade",
+    "compute_benchmark_comparison",
+    "load_benchmark_prices",
     "load_prices",
     "run_backtest",
 ]
