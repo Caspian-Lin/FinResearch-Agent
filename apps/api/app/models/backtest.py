@@ -23,7 +23,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, func, text
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -64,6 +64,8 @@ class BacktestRun(Base):
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     price_field: Mapped[str] = mapped_column(String(16), nullable=False)  # raw | adjusted
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    # 失败原因(FRA-37):success / running 时为 NULL;failed 时填异常摘要(≤500 字符)。
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

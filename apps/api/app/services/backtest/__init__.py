@@ -11,6 +11,7 @@ from app.services.backtest.benchmark import (
     load_benchmark_prices,
 )
 from app.services.backtest.engine import run_backtest
+from app.services.backtest.execution import execute_backtest_run
 from app.services.backtest.metrics import (
     compute_result_metrics,
     compute_risk_metrics,
@@ -26,6 +27,7 @@ from app.services.backtest.strategies import (
     MomentumStrategy,
     ReversalStrategy,
 )
+from app.services.backtest.strategies.registry import get_strategy
 from app.services.backtest.types import (
     BacktestConfig,
     BacktestMetrics,
@@ -54,6 +56,8 @@ __all__ = [
     "compute_benchmark_comparison",
     "compute_result_metrics",
     "compute_risk_metrics",
+    "execute_backtest_run",
+    "get_strategy",
     "load_benchmark_prices",
     "load_prices",
     "run_backtest",
