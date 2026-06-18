@@ -32,6 +32,7 @@ class BacktestRunRead(BaseModel):
     price_field: str
     status: str
     error_message: str | None
+    run_kind: str
     created_at: datetime
 
 

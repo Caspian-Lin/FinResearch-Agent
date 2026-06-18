@@ -157,7 +157,51 @@ class BacktestEngine(Protocol):
 
 ## Sensitivity Analysis
 
-<!-- TODO: describe parameter sweeps over lookback window, rebalance frequency, top-k, transaction cost bands; how results are summarized (heatmap, distribution) and persisted into backtest_metrics. Ref: 项目描述文件 §11.3 -->
+> Ref: 项目描述文件 §7.2 P1、§11.3 第 5 条;实现位于
+> `apps/api/app/services/backtest/sensitivity.py`(FRA-35)。
+
+**Week 2 MVP 目标**:证明系统能记录参数、跨成本假设对比、避免只展示单一最优曲线。
+完整因子参数研究(因子 IC、分层回测、显著性统计、超参自动搜索)**明确推迟到
+Week 3**(见下文「非目标」)。
+
+### 网格(Week 2)
+
+| 策略 | 维度 | 默认档位 |
+|---|---|---|
+| Moving Average Crossover | fast × slow × cost | (5, 10) × (20, 50) × (0, 5, 10, 25)bps |
+| Momentum | lookback × top_k × rebalance × cost | (21, 63) × (1, 3) × (daily, monthly) × (0, 5, 10, 25)bps |
+
+* 成本档 `[0, 5, 10, 25]bps` 是单边交易成本,满足 §11.3 第 5 条「成本前后对比」
+  与 §7.2 成本敏感性;每档成本对所有策略点重复,使「换手 → 成本 → 净收益」可横向对比。
+* Momentum 单独把 `rebalance` 作为维度(daily / monthly),使换仓频率对结果的
+  影响可被度量(issue「rebalance 至少一个小网格」)。
+
+### 流程
+
+1. **展开网格**(`ma_crossover_configs` / `momentum_configs`):从一份 base
+   `BacktestConfig` 用 `dataclasses.replace` 生成每个 (参数, cost) 组合的 frozen
+   config;`fast >= slow` 的非法组合被过滤。
+2. **跑网格**(`run_sweep`):对**同一份** prices 逐 config 跑 FRA-28 引擎 + FRA-34
+   指标(gross / net 双口径),产出 `list[SweepPoint]`。复用同一份 prices 保证点间
+   可比 —— 差异只来自参数 / 成本,而非数据窗口。
+3. **汇总**(`summarize_sweep`):每个 point 输出 net Sharpe / MaxDD / turnover /
+   gross-net 年化收益差;对每个维度(策略参数 + cost)算 *normalized range*
+   `(max 组均值 − min 组均值) / |总体均值|`,超过阈值(默认 0.5)标记为「高影响」。
+   任一维度高影响 → 「结果高度依赖单一参数」,提示不要只信单一最优参数点。
+
+### 入库与可复现
+
+每个 (参数, cost) 组合写入一个 `BacktestRun(run_kind='sensitivity')` + 1:1
+`BacktestMetrics`(指标来自 `run_sweep`,**不重跑回测** —— sweep 复用同一份 prices,
+重跑是浪费)。每个 run 的 `config_json` 内嵌完整 sweep 网格规格
+(`config_json.sweep.grid`)+ 该点的参数 / 成本,使任一子 run 独立可复现(§11.3
+第 6 条)。sweep run 用 `run_kind='sensitivity'` 与常规回测区分,便于查询。
+
+### 非目标(明确推迟到 Week 3)
+
+* 超参自动搜索 / 优化(网格之外的贝叶斯优化、遗传算法等);
+* 因子 IC / 分层回测 / 显著性统计(因子研究专题);
+* 前端热力图 / 交互式可视化(Week 2 仅产出表格 / JSON)。
 
 ## Limitations
 
