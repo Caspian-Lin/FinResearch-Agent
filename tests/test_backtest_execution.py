@@ -16,7 +16,7 @@ from decimal import Decimal
 import pytest
 from app.db.session import SessionLocal
 from app.models.asset import Asset
-from app.models.backtest import BacktestMetrics, BacktestRun, EquityCurvePoint
+from app.models.backtest import BacktestMetrics, BacktestRun, EquityCurvePoint, Trade
 from app.models.ohlcv import Ohlcv
 from app.models.user import User
 from app.services.backtest.execution import execute_backtest_run
@@ -40,6 +40,7 @@ def _cleanup(db: Session) -> None:
     db.execute(
         text(f"DELETE FROM backtest_metrics WHERE backtest_run_id IN ({runs})"), {"p": f"{PREFIX}%"}
     )
+    db.execute(text(f"DELETE FROM trades WHERE backtest_run_id IN ({runs})"), {"p": f"{PREFIX}%"})
     db.execute(text("DELETE FROM backtest_runs WHERE name LIKE :p"), {"p": f"{PREFIX}%"})
     db.execute(
         text(
@@ -205,3 +206,36 @@ def test_execute_missing_prices_marks_failed(db_session: Session) -> None:
     db_session.refresh(run)
     assert run.status == "failed"
     assert run.error_message is not None
+
+
+# ---------------------------------------------------------------------------
+# trades 入库(FRA-42)
+# ---------------------------------------------------------------------------
+
+
+def test_execute_persists_trades(db_session: Session) -> None:
+    user = _make_user(db_session, "U4")
+    asset = _make_asset(db_session, f"{PREFIX}-D")
+    _seed_ohlcv(
+        db_session,
+        asset,
+        [
+            ("2024-01-02", 100.0),
+            ("2024-01-03", 101.0),
+            ("2024-01-04", 103.0),
+            ("2024-01-05", 102.0),
+        ],
+    )
+    run = _make_run(db_session, user, asset, strategy_name="buy_hold")
+
+    result = execute_backtest_run(str(run.id))
+
+    assert result["status"] == "success"
+    trades = list(db_session.scalars(select(Trade).where(Trade.backtest_run_id == run.id)).all())
+    # buy_hold 单资产:首日建仓 0→1.0 产生 ≥1 笔 buy trade(price/quantity/cost 已定量化)。
+    assert len(trades) >= 1
+    t = trades[0]
+    assert t.side == "buy"
+    assert t.asset_id == asset.id
+    assert float(t.quantity) > 0
+    assert float(t.price) > 0

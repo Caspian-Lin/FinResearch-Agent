@@ -20,7 +20,7 @@ from app.services.backtest.benchmark import (
 )
 from app.services.backtest.engine import run_backtest
 from app.services.backtest.metrics import compute_result_metrics, to_metrics_orm
-from app.services.backtest.persistence import build_equity_curve_points
+from app.services.backtest.persistence import build_equity_curve_points, build_trade_points
 from app.services.backtest.prices import load_prices
 from app.services.backtest.strategies.registry import get_strategy
 from app.services.backtest.types import BacktestConfig, PriceField, RebalanceFreq
@@ -89,8 +89,7 @@ def execute_backtest_run(run_id: str) -> dict[str, Any]:
         gross, net = compute_result_metrics(result, benchmark_returns)
         db.add(to_metrics_orm(rid, gross, net))
         db.add_all(build_equity_curve_points(rid, result, comparison))
-        # 注:trades 入库(engine Trade 的 weight-delta → ORM Trade 的
-        # quantity/price/cost)留待后续 issue —— schema 不直接对应,转换需额外设计。
+        db.add_all(build_trade_points(rid, result, prices, config))  # FRA-42
 
         run.status = "success"
         db.commit()
