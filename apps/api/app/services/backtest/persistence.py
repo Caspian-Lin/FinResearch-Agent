@@ -16,6 +16,7 @@ session** —— 实际持久化与事务由回测触发 API issue 负责(同 ``
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -23,8 +24,11 @@ from decimal import Decimal
 import pandas as pd
 
 from app.models.backtest import SERIES_KINDS, EquityCurvePoint
+from app.models.backtest import Trade as TradeORM
 from app.services.backtest.benchmark import BenchmarkComparison
-from app.services.backtest.types import BacktestResult
+from app.services.backtest.types import BacktestConfig, BacktestResult
+
+logger = logging.getLogger(__name__)
 
 
 def build_equity_curve_points(
@@ -80,6 +84,75 @@ def build_equity_curve_points(
                 )
             )
 
+    return points
+
+
+def build_trade_points(
+    run_id: uuid.UUID,
+    result: BacktestResult,
+    prices: pd.DataFrame,
+    config: BacktestConfig,
+) -> list[TradeORM]:
+    """把 FRA-28 engine 的 weight-delta ``Trade`` 转成 ORM ``Trade``(quantity/price/cost/side)。
+
+    engine 的 ``Trade`` 记的是**权重变动**(weight_before / after / turnover),不含价格 /
+    股数;ORM ``Trade`` 要 quantity(股)/ price / cost(货币)/ side。逐笔用当日该资产价格
+    + 当日组合净值(``equity_curve[t]``)把权重变动定量化:
+
+    * ``price``        = ``prices[t, asset]``(当日成交价)
+    * ``value_traded`` = ``(weight_after − weight_before) × equity_curve[t]``(价值变动)
+    * ``quantity``     = ``|value_traded / price|``(股数,绝对值;``side`` 区分方向)
+    * ``side``         = ``buy`` if ``weight_delta > 0`` else ``sell``
+    * ``cost``         = ``|value_traded| × cost_bps / 1e4``(单边成本,货币)
+
+    price NaN(停牌 / 数据缺失,无法定价)的 trade 跳过 + warning —— 不丢失其它 trade,
+    也不让单笔定价失败拖垮整个 run。
+
+    Args:
+        run_id: 所属 ``BacktestRun`` UUID。
+        result: engine 产出(含 ``trades`` + ``equity_curve``)。
+        prices: 与 engine 同源的价格宽表(index=UTC 午夜,columns=``str(asset_id)``)。
+        config: 取 ``cost_bps`` 算单边成本。
+
+    Returns:
+        ORM ``Trade`` 列表(纯构造,不碰 session);price NaN 的 trade 被跳过。
+    """
+    cost_rate = config.cost_bps / 1e4
+    equity = result.equity_curve
+    points: list[TradeORM] = []
+    skipped = 0
+    for trade in result.trades:
+        if trade.asset_id not in prices.columns:
+            skipped += 1
+            continue
+        price = prices.loc[trade.date, trade.asset_id]
+        if price is None or pd.isna(price) or float(price) <= 0.0:
+            skipped += 1
+            continue
+        price_f = float(price)
+        portfolio_value = float(equity.loc[trade.date])
+        weight_delta = trade.weight_after - trade.weight_before
+        value_traded = weight_delta * portfolio_value
+        quantity = abs(value_traded / price_f)
+        cost = abs(value_traded) * cost_rate
+        points.append(
+            TradeORM(
+                backtest_run_id=run_id,
+                time=_to_dt(trade.date),
+                asset_id=uuid.UUID(trade.asset_id),
+                side="buy" if weight_delta > 0 else "sell",
+                quantity=_to_dec(quantity) or Decimal("0"),
+                price=_to_dec(price_f) or Decimal("0"),
+                cost=_to_dec(cost) or Decimal("0"),
+            )
+        )
+    if skipped:
+        logger.warning(
+            "build_trade_points run_id=%s skipped %d/%d trade(s) with missing/non-positive price",
+            run_id,
+            skipped,
+            len(result.trades),
+        )
     return points
 
 
