@@ -17,7 +17,7 @@ import pytest
 from app.db.session import SessionLocal, get_db
 from app.main import app
 from app.models.asset import Asset
-from app.models.backtest import BacktestMetrics, BacktestRun, EquityCurvePoint
+from app.models.backtest import BacktestMetrics, BacktestRun, EquityCurvePoint, Trade
 from app.services.sync import get_backtest_queue
 from fastapi.testclient import TestClient
 from sqlalchemy import text
@@ -39,6 +39,7 @@ def _cleanup(db: Session) -> None:
     db.execute(
         text(f"DELETE FROM backtest_metrics WHERE backtest_run_id IN ({runs})"), {"p": f"{PREFIX}%"}
     )
+    db.execute(text(f"DELETE FROM trades WHERE backtest_run_id IN ({runs})"), {"p": f"{PREFIX}%"})
     db.execute(text("DELETE FROM backtest_runs WHERE name LIKE :p"), {"p": f"{PREFIX}%"})
     db.execute(text("DELETE FROM assets WHERE symbol LIKE :p"), {"p": f"{PREFIX}%"})
     db.execute(text("DELETE FROM users WHERE email ILIKE :p"), {"p": f"{PREFIX}%"})
@@ -208,7 +209,8 @@ def test_get_backtest_returns_detail(client: TestClient, db_session: Session) ->
     body = r.json()
     assert body["run"]["id"] == str(run.id)
     assert body["run"]["status"] == "success"
-    assert body["metrics"]["gross_annual_return"] == "0.150000"
+    # Decimal → float 序列化(FRA-24 模式):数值字段为 JSON number,非 string。
+    assert body["metrics"]["gross_annual_return"] == 0.15
     assert len(body["equity_curve"]) == 1
     assert body["equity_curve"][0]["series_kind"] == "strategy"
 
@@ -226,6 +228,38 @@ def test_get_backtest_missing_404(client: TestClient, db_session: Session) -> No
     token, _ = _register(client, "U8")
     r = client.get(f"/backtest/{uuid.uuid4()}", headers=_auth(token))
     assert r.status_code == 404
+
+
+def test_get_backtest_returns_trades(client: TestClient, db_session: Session) -> None:
+    """detail 响应含 trades(FRA-38:交易明细可查;复现 FRA-42 入库形态)。"""
+    token, user_id = _register(client, "U13")
+    asset = _make_asset(db_session, f"{PREFIX}-TR")
+    run = _seed_finished_run(db_session, user_id, "tr1")
+    # 直接 seed 1 笔 buy trade(复现 FRA-42 入库形态:quantity/price/cost)。
+    db_session.add(
+        Trade(
+            backtest_run_id=run.id,
+            time=datetime(2024, 1, 2, tzinfo=UTC),
+            asset_id=asset.id,
+            side="buy",
+            quantity=Decimal("100"),
+            price=Decimal("100.00"),
+            cost=Decimal("1.00"),
+        )
+    )
+    db_session.commit()
+
+    r = client.get(f"/backtest/{run.id}", headers=_auth(token))
+
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["trades"]) == 1
+    t = body["trades"][0]
+    assert t["side"] == "buy"
+    assert t["asset_id"] == str(asset.id)
+    # Decimal → float 序列化(FRA-24 模式)。
+    assert t["quantity"] == 100.0
+    assert t["price"] == 100.0
 
 
 # ---------------------------------------------------------------------------

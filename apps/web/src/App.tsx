@@ -101,6 +101,7 @@ function App() {
   const navItems: MenuProps['items'] = [
     { key: '/dashboard', label: t('common:nav.dashboard') },
     { key: '/watchlist', label: t('common:nav.watchlist') },
+    { key: '/backtest', label: t('common:nav.backtests') },
   ];
 
   const userMenuItems: MenuProps['items'] = [
