@@ -20,10 +20,12 @@ import dayjs from 'dayjs';
 
 import { createBacktest, getBacktest, listBacktests } from '@/api/backtest';
 import { ApiError } from '@/api/client';
+import { fetchQuality } from '@/api/quality';
 import { useWatchlists } from '@/hooks/useWatchlists';
 import { BacktestConfigForm } from '@/components/backtest/BacktestConfigForm';
 import { BacktestCurveChart } from '@/components/backtest/BacktestCurveChart';
 import { MetricsCards } from '@/components/backtest/MetricsCards';
+import { PreflightSyncModal, type MissingAsset } from '@/components/backtest/PreflightSyncModal';
 import { TradesTable } from '@/components/backtest/TradesTable';
 import {
   buildDrawdownOption,
@@ -37,6 +39,10 @@ const { Title, Text } = Typography;
 const POLL_INTERVAL_MS = 1500;
 /** Hard ceiling on poll count (~3 min) before we stop auto-refreshing. */
 const MAX_POLLS = 120;
+/** Coverage below which the preflight flags an asset as needing sync (FRA-43). */
+const COVERAGE_THRESHOLD = 0.9;
+/** Data source for both the preflight quality check and the backtest. */
+const SOURCE = 'yfinance';
 
 type Phase = 'idle' | 'polling' | 'success' | 'failed' | 'timeout';
 
@@ -50,6 +56,8 @@ function BacktestPage() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [symbolByAsset, setSymbolByAsset] = useState<Record<string, string>>({});
   const [history, setHistory] = useState<BacktestRunRead[]>([]);
+  const [preflightMissing, setPreflightMissing] = useState<MissingAsset[]>([]);
+  const [preflightWindow, setPreflightWindow] = useState({ source: SOURCE, start: '', end: '' });
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -133,6 +141,37 @@ function BacktestPage() {
       setSubmitting(true);
       setSymbolByAsset(symbols);
       try {
+        // FRA-43 preflight: verify universe + benchmark coverage before running.
+        // Any asset below the threshold (incl. no data) opens the sync modal
+        // instead of backtesting; the user re-runs after sync completes.
+        const checkIds = [...req.universe];
+        if (req.benchmark_asset_id) checkIds.push(req.benchmark_asset_id);
+        const missing: MissingAsset[] = [];
+        await Promise.all(
+          checkIds.map(async (id) => {
+            const symbol = symbols[id] ?? id.slice(0, 8);
+            try {
+              const q = await fetchQuality({
+                asset_id: id,
+                source: SOURCE,
+                start: req.start,
+                end: req.end,
+              });
+              if (q.coverage < COVERAGE_THRESHOLD) {
+                missing.push({ assetId: id, symbol, coverage: q.coverage });
+              }
+            } catch {
+              // quality unavailable (404/422) → treat as no data.
+              missing.push({ assetId: id, symbol, coverage: 0 });
+            }
+          }),
+        );
+        if (missing.length > 0) {
+          setPreflightMissing(missing);
+          setPreflightWindow({ source: SOURCE, start: req.start, end: req.end });
+          return;
+        }
+        // data complete → enqueue backtest + poll.
         const enqueued = await createBacktest(req);
         setDetail(null);
         setPhase('polling');
@@ -294,6 +333,15 @@ function BacktestPage() {
           <Empty description={t('backtest:history.empty')} />
         )}
       </Card>
+
+      <PreflightSyncModal
+        open={preflightMissing.length > 0}
+        missing={preflightMissing}
+        source={preflightWindow.source}
+        start={preflightWindow.start}
+        end={preflightWindow.end}
+        onCancel={() => setPreflightMissing([])}
+      />
     </div>
   );
 }

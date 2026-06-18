@@ -111,6 +111,26 @@ const backtest = {
     status: '状态',
     created: '创建时间',
   },
+
+  preflight: {
+    title: '缺少行情数据',
+    body: '以下资产在 {{window}} 数据覆盖不足(数据源:{{source}})。现在拉取?',
+    coverage: '覆盖 {{pct}}%',
+    hint: '将从数据源拉取行情;完成后需重新运行回测。',
+    syncButton: '拉取数据',
+    syncDone: '数据已补齐,请重新运行回测。',
+    syncFailed: '部分资产拉取失败。',
+    syncTimeout: '拉取超时,请稍后重试。',
+    enqueueFailed: '提交失败',
+    rerunHint: '覆盖已更新,请再次点击「运行回测」。',
+    job: {
+      queued: '排队中',
+      pending: '排队中…',
+      running: '拉取中…',
+      success: '完成',
+      failed: '失败',
+    },
+  },
 } as const;
 
 export default backtest;

@@ -113,6 +113,26 @@ const backtest = {
     status: 'Status',
     created: 'Created',
   },
+
+  preflight: {
+    title: 'Missing price data',
+    body: 'These assets have insufficient price coverage in {{window}} (source: {{source}}). Sync them now?',
+    coverage: 'coverage {{pct}}%',
+    hint: 'Sync pulls bars from the data source; you will re-run the backtest once it completes.',
+    syncButton: 'Sync data',
+    syncDone: 'Data synced. Please re-run the backtest.',
+    syncFailed: 'Some assets failed to sync.',
+    syncTimeout: 'Sync timed out — please retry later.',
+    enqueueFailed: 'failed to enqueue',
+    rerunHint: 'Coverage is now updated — click "Run backtest" again.',
+    job: {
+      queued: 'Queued',
+      pending: 'Queued…',
+      running: 'Syncing…',
+      success: 'Done',
+      failed: 'Failed',
+    },
+  },
 } as const;
 
 export default backtest;
