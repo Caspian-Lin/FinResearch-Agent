@@ -29,6 +29,7 @@ from app.models.backtest import (
     BacktestMetrics,
     BacktestRun,
     EquityCurvePoint,
+    Trade,
 )
 from app.models.user import User
 from app.schemas.backtest import (
@@ -39,6 +40,7 @@ from app.schemas.backtest import (
     BacktestMetricsRead,
     BacktestRunRead,
     EquityCurvePointRead,
+    TradeRead,
 )
 from app.services.sync import get_backtest_queue
 
@@ -148,7 +150,7 @@ def create_backtest(
     summary="Get a backtest run + metrics + curves",
 )
 def get_backtest(run_id: uuid.UUID, db: DBSession, current_user: CurrentUser) -> BacktestDetailRead:
-    """Return run metadata, metrics (if finished), and equity/drawdown curve.
+    """Return run metadata, metrics, equity/drawdown curve, and trades.
 
     A run owned by another user returns 404 (no existence leak).
     """
@@ -161,10 +163,14 @@ def get_backtest(run_id: uuid.UUID, db: DBSession, current_user: CurrentUser) ->
             .order_by(EquityCurvePoint.series_kind, EquityCurvePoint.time)
         ).all()
     )
+    trades = list(
+        db.scalars(select(Trade).where(Trade.backtest_run_id == run.id).order_by(Trade.time)).all()
+    )
     return BacktestDetailRead(
         run=BacktestRunRead.model_validate(run),
         metrics=BacktestMetricsRead.model_validate(metrics) if metrics else None,
         equity_curve=[EquityCurvePointRead.model_validate(p) for p in curve],
+        trades=[TradeRead.model_validate(t) for t in trades],
     )
 
 

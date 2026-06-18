@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -37,42 +36,51 @@ class BacktestRunRead(BaseModel):
 
 
 class BacktestMetricsRead(BaseModel):
-    """Gross + net metric sets for one run (1:1 with ``BacktestRunRead``)."""
+    """Gross + net metric sets for one run (1:1 with ``BacktestRunRead``).
+
+    Numeric fields are typed ``float`` (not ``Decimal``) so they serialize as
+    JSON numbers — the frontend cards/charts need numeric values, and Pydantic
+    v2 otherwise serializes ``Decimal`` as a string. Precision loss to float64
+    is acceptable for display; the DB column stays ``numeric`` (FRA-24 pattern).
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     backtest_run_id: uuid.UUID
-    gross_annual_return: Decimal | None
-    gross_volatility: Decimal | None
-    gross_sharpe_ratio: Decimal | None
-    gross_max_drawdown: Decimal | None
-    gross_calmar_ratio: Decimal | None
-    gross_turnover: Decimal | None
-    gross_win_rate: Decimal | None
-    gross_beta: Decimal | None
-    gross_correlation: Decimal | None
-    net_annual_return: Decimal | None
-    net_volatility: Decimal | None
-    net_sharpe_ratio: Decimal | None
-    net_max_drawdown: Decimal | None
-    net_calmar_ratio: Decimal | None
-    net_turnover: Decimal | None
-    net_win_rate: Decimal | None
-    net_beta: Decimal | None
-    net_correlation: Decimal | None
+    gross_annual_return: float | None
+    gross_volatility: float | None
+    gross_sharpe_ratio: float | None
+    gross_max_drawdown: float | None
+    gross_calmar_ratio: float | None
+    gross_turnover: float | None
+    gross_win_rate: float | None
+    gross_beta: float | None
+    gross_correlation: float | None
+    net_annual_return: float | None
+    net_volatility: float | None
+    net_sharpe_ratio: float | None
+    net_max_drawdown: float | None
+    net_calmar_ratio: float | None
+    net_turnover: float | None
+    net_win_rate: float | None
+    net_beta: float | None
+    net_correlation: float | None
 
 
 class EquityCurvePointRead(BaseModel):
-    """One point of a run's equity / daily-return / drawdown curve."""
+    """One point of a run's equity / daily-return / drawdown curve.
+
+    Numeric fields are ``float`` for JSON-number serialization (FRA-24 pattern).
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     backtest_run_id: uuid.UUID
     series_kind: str
     time: datetime
-    equity: Decimal
-    daily_return: Decimal | None
-    drawdown: Decimal | None
+    equity: float
+    daily_return: float | None
+    drawdown: float | None
 
 
 class TradeRead(BaseModel):
@@ -85,9 +93,9 @@ class TradeRead(BaseModel):
     time: datetime
     asset_id: uuid.UUID
     side: str
-    quantity: Decimal
-    price: Decimal
-    cost: Decimal
+    quantity: float
+    price: float
+    cost: float
     created_at: datetime
 
 
@@ -130,11 +138,14 @@ class BacktestDetailRead(BaseModel):
 
     ``equity_curve`` holds both ``strategy`` and ``benchmark`` points
     (distinguished by ``series_kind``, FRA-41); empty until the worker finishes.
+    ``trades`` lists the persisted fills (FRA-42), surfaced here for the
+    backtest page's trade-detail table (FRA-38).
     """
 
     run: BacktestRunRead
     metrics: BacktestMetricsRead | None = None
     equity_curve: list[EquityCurvePointRead] = Field(default_factory=list)
+    trades: list[TradeRead] = Field(default_factory=list)
 
 
 class BacktestListResponse(BaseModel):

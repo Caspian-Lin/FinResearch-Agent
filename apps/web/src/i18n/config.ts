@@ -28,6 +28,7 @@ export const NAMESPACES = [
   'watchlist',
   'dashboard',
   'errors',
+  'backtest',
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
