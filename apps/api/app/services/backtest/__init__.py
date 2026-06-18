@@ -20,6 +20,16 @@ from app.services.backtest.metrics import (
 from app.services.backtest.persistence import build_equity_curve_points
 from app.services.backtest.prices import load_prices
 from app.services.backtest.protocols import BacktestEngine, Strategy
+from app.services.backtest.sensitivity import (
+    ParamImpact,
+    SweepPoint,
+    SweepSummary,
+    ma_crossover_configs,
+    momentum_configs,
+    persist_sweep,
+    run_sweep,
+    summarize_sweep,
+)
 from app.services.backtest.strategies import (
     BuyAndHoldStrategy,
     EqualWeightStrategy,
@@ -47,10 +57,13 @@ __all__ = [
     "EqualWeightStrategy",
     "MACrossoverStrategy",
     "MomentumStrategy",
+    "ParamImpact",
     "PriceField",
     "RebalanceFreq",
     "ReversalStrategy",
     "Strategy",
+    "SweepPoint",
+    "SweepSummary",
     "Trade",
     "build_equity_curve_points",
     "compute_benchmark_comparison",
@@ -60,6 +73,11 @@ __all__ = [
     "get_strategy",
     "load_benchmark_prices",
     "load_prices",
+    "ma_crossover_configs",
+    "momentum_configs",
+    "persist_sweep",
     "run_backtest",
+    "run_sweep",
+    "summarize_sweep",
     "to_metrics_orm",
 ]

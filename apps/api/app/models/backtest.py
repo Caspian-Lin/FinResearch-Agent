@@ -36,6 +36,10 @@ BACKTEST_STATUSES = ("pending", "running", "success", "failed")
 #: allowed values for ``EquityCurvePoint.series_kind`` (FRA-41) — distinguishes the
 #: strategy's own curve from the buy & hold benchmark curve stored in the same table.
 SERIES_KINDS = ("strategy", "benchmark")
+#: allowed values for ``BacktestRun.run_kind`` (FRA-35) — ``backtest`` is a single
+#: triggered run (POST /backtest); ``sensitivity`` marks each child run produced by a
+#: parameter/cost sweep so sweep runs are queryable apart from regular backtests.
+RUN_KINDS = ("backtest", "sensitivity")
 
 
 class BacktestRun(Base):
@@ -44,6 +48,8 @@ class BacktestRun(Base):
     ``config_json`` serializes the FRA-25 ``BacktestConfig`` 1:1 (universe,
     start, end, strategy name + params, initial_capital, cost_bps, rebalance,
     price_field, benchmark) so a run can be reconstructed exactly (§11.3.6).
+    ``run_kind`` (FRA-35) marks sweep-produced runs (``sensitivity``) apart from
+    one-off triggered runs (``backtest``).
     """
 
     __tablename__ = "backtest_runs"
@@ -66,6 +72,12 @@ class BacktestRun(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     # 失败原因(FRA-37):success / running 时为 NULL;failed 时填异常摘要(≤500 字符)。
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # run_kind(FRA-35):``backtest`` = 单次触发回测;``sensitivity`` = 参数/成本 sweep
+    # 产出的子 run。默认 ``backtest`` —— 既有 run 与 POST /backtest 路径不受影响,
+    # sweep 入库时显式置 ``sensitivity``。
+    run_kind: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="backtest", server_default="backtest"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
