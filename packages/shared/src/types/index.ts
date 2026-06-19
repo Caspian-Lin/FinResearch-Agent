@@ -131,3 +131,52 @@ export interface AgentPlan {
   };
   validation: AgentValidation;
 }
+
+// ─── Factor research(Week 3,FRA-47)──────────────────────────────────────────
+// 与后端 app/services/factors 契约一一对应;详见 docs/factor-research-methodology.md(FRA-59)。
+
+/** 时序点(time + value),承载 IC series / 分层净值等时间序列结果 */
+export interface TimeSeriesPoint {
+  /** ISO 8601,UTC 午夜 */
+  time: string;
+  value: number;
+}
+
+/** 因子值,对齐后端 FactorValue(FRA-47)与 factor_values 表(FRA-48) */
+export interface FactorValue {
+  asset_id: string;
+  /** 因子名,编码参数,如 momentum_21 / rsi_14 / volatility_20d */
+  factor_name: string;
+  /** ISO 8601,UTC 午夜 */
+  time: string;
+  value: number;
+  /** 参数快照,保证可复现(§11.3 第 6 条) */
+  params: Record<string, unknown>;
+  source: string;
+}
+
+/** IC(信息系数)统计汇总,对齐后端 ICSummary(FRA-47 / FRA-52) */
+export interface ICSummary {
+  mean: number;
+  icir: number;
+  t_stat: number;
+  p_value: number;
+  n: number;
+  positive_rate: number;
+}
+
+/** IC 评估结果:逐期 IC 序列 + 汇总,对齐后端 ICResult */
+export interface ICResult {
+  series: TimeSeriesPoint[];
+  summary: ICSummary;
+}
+
+/** 分层(quantile)回测结果,对齐后端 QuantileResult(FRA-47 / FRA-53) */
+export interface QuantileResult {
+  /** key = 分层标签(1..N,1 = 因子值最低),value = 该层净值时序 */
+  quantile_equity: Record<string, TimeSeriesPoint[]>;
+  /** long top − short bottom 多空组合净值时序 */
+  top_minus_bottom: TimeSeriesPoint[];
+  /** 层平均收益随层序的单调性(如 Spearman 相关) */
+  monotonicity: number;
+}
