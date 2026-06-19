@@ -180,7 +180,7 @@ describe('WatchlistPage', () => {
     await screen.findByText('ToDelete');
 
     deleteWatchlist.mockResolvedValue(undefined);
-    await user.click(screen.getByRole('button', { name: /Delete/i }));
+    await user.click(await screen.findByRole('button', { name: /Delete/i }));
     await user.click(await screen.findByRole('button', { name: 'OK' }));
 
     await waitFor(() => expect(deleteWatchlist).toHaveBeenCalledWith('wl-1'));

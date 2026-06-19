@@ -131,6 +131,7 @@ const backtest = {
       pending: 'Queued…',
       running: 'Syncing…',
       success: 'Done',
+      success_no_data: 'No data',
       failed: 'Failed',
     },
   },

@@ -20,18 +20,18 @@ from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pandas as pd
 import pytest
 import requests
-from app.api.sync import get_data_queue
 from app.db.session import SessionLocal, get_db
 from app.main import app
 from app.models.asset import Asset
 from app.models.ohlcv import Ohlcv
 from app.services import yfinance as yf_svc
 from app.services.ohlcv import upsert_ohlcv_bars
-from app.services.sync import map_rq_status, parse_job_inputs, safe_error_summary
+from app.services.sync import get_data_queue, map_rq_status, parse_job_inputs, safe_error_summary
 from app.services.yfinance import OhlcvBar, _to_utc_midnight, fetch_ohlcv
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select, text
@@ -104,7 +104,7 @@ def _bar(
     )
 
 
-def _df(rows: list[dict]) -> pd.DataFrame:
+def _df(rows: list[dict[str, object]]) -> pd.DataFrame:
     """Build a yfinance-shaped DataFrame indexed by trading-day Timestamp."""
     df = pd.DataFrame(rows)
     df.index = pd.DatetimeIndex(pd.to_datetime(df["Date"]))
@@ -143,7 +143,9 @@ def test_to_utc_midnight_normalizes_any_timestamp_to_utc_zero() -> None:
         assert (out.hour, out.minute, out.second) == (0, 0, 0)
 
 
-def test_fetch_ohlcv_field_conversion_maps_close_and_adj_close(monkeypatch) -> None:
+def test_fetch_ohlcv_field_conversion_maps_close_and_adj_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """raw Close → close, Adj Close → adjusted_close (never swapped); time UTC."""
     df = _df(
         [
@@ -176,7 +178,7 @@ def test_fetch_ohlcv_field_conversion_maps_close_and_adj_close(monkeypatch) -> N
             assert kwargs["auto_adjust"] is False
             return df
 
-    monkeypatch.setattr(yf_svc.yf, "Ticker", FakeTicker)
+    monkeypatch.setattr(cast(Any, yf_svc).yf, "Ticker", FakeTicker)
 
     bars = fetch_ohlcv("AAPL", date(2024, 1, 1), date(2024, 1, 5))
     assert len(bars) == 2
@@ -191,7 +193,7 @@ def test_fetch_ohlcv_field_conversion_maps_close_and_adj_close(monkeypatch) -> N
     assert b1.time == datetime(2024, 1, 3, tzinfo=UTC)
 
 
-def test_fetch_ohlcv_retries_transient_network_error(monkeypatch) -> None:
+def test_fetch_ohlcv_retries_transient_network_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """A connection error is retried; success on the 3rd attempt."""
     df = _df(
         [
@@ -215,14 +217,16 @@ def test_fetch_ohlcv_retries_transient_network_error(monkeypatch) -> None:
                 raise requests.exceptions.ConnectionError("transient boom")
             return df
 
-    monkeypatch.setattr(yf_svc.yf, "Ticker", lambda symbol: FakeTicker())
+    monkeypatch.setattr(cast(Any, yf_svc).yf, "Ticker", lambda symbol: FakeTicker())
 
     bars = fetch_ohlcv("AAPL", date(2024, 1, 1), date(2024, 1, 5), retryer=_fast_retryer())
     assert len(bars) == 1
     assert calls["n"] == 3  # 2 failures retried, 3rd attempt succeeded
 
 
-def test_fetch_ohlcv_empty_symbol_returns_empty_without_retry(monkeypatch) -> None:
+def test_fetch_ohlcv_empty_symbol_returns_empty_without_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """A bad symbol yields an empty DataFrame — not retried, not raised."""
     calls = {"n": 0}
 
@@ -231,7 +235,7 @@ def test_fetch_ohlcv_empty_symbol_returns_empty_without_retry(monkeypatch) -> No
             calls["n"] += 1
             return pd.DataFrame()  # parameter error, not a transient failure
 
-    monkeypatch.setattr(yf_svc.yf, "Ticker", lambda symbol: FakeTicker())
+    monkeypatch.setattr(cast(Any, yf_svc).yf, "Ticker", lambda symbol: FakeTicker())
 
     bars = fetch_ohlcv("BOGUS", date(2024, 1, 1), date(2024, 1, 5), retryer=_fast_retryer())
     assert bars == []
@@ -287,6 +291,7 @@ def test_upsert_overwrites_revised_data(db_session: Session) -> None:
 
     assert (inserted, updated) == (0, 1)
     row = db_session.scalar(select(Ohlcv).where(Ohlcv.asset_id == asset.id))
+    assert row is not None
     assert row.close == Decimal("150")
     assert row.adjusted_close == Decimal("149")
 
@@ -303,7 +308,7 @@ def test_upsert_empty_bars_is_noop(db_session: Session) -> None:
 
 
 def test_sync_ohlcv_success_writes_bars_and_returns_result(
-    monkeypatch, db_session: Session
+    monkeypatch: pytest.MonkeyPatch, db_session: Session
 ) -> None:
     asset = _make_asset(db_session, "FRA8TEST-SYNC")
     bars = [_bar("2024-01-02", "100", "99"), _bar("2024-01-03", "101", "100")]
@@ -325,18 +330,42 @@ def test_sync_ohlcv_success_writes_bars_and_returns_result(
     assert _count_ohlcv(db_session, asset.id) == 2
 
 
-def test_sync_ohlcv_unknown_asset_raises(monkeypatch) -> None:
+def test_sync_ohlcv_empty_fetch_returns_success_no_data(
+    monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    asset = _make_asset(db_session, "FRA8TEST-NODATA")
+
+    import worker.tasks.ohlcv as task_mod
+
+    monkeypatch.setattr(task_mod, "fetch_ohlcv", lambda *a, **kw: [])
+
+    result = sync_ohlcv(str(asset.id), "2024-01-01", "2024-01-05", "yfinance")
+
+    assert result["status"] == "success_no_data"
+    assert result["inserted"] == 0
+    assert result["updated"] == 0
+    assert result["total_bars"] == 0
+    assert result["warning"] == "source returned 0 bars (likely rate-limited or unavailable)"
+    db_session.rollback()
+    assert _count_ohlcv(db_session, asset.id) == 0
+
+
+def test_sync_ohlcv_unknown_asset_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ValueError, match="not found"):
         sync_ohlcv(str(uuid.uuid4()), "2024-01-01", "2024-01-05", "yfinance")
 
 
-def test_sync_ohlcv_unsupported_source_raises(monkeypatch, db_session: Session) -> None:
+def test_sync_ohlcv_unsupported_source_raises(
+    monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
     asset = _make_asset(db_session, "FRA8TEST-SRC")
     with pytest.raises(ValueError, match="unsupported source"):
         sync_ohlcv(str(asset.id), "2024-01-01", "2024-01-05", "bloomberg")
 
 
-def test_sync_ohlcv_fetch_failure_rolls_back(monkeypatch, db_session: Session) -> None:
+def test_sync_ohlcv_fetch_failure_rolls_back(
+    monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
     asset = _make_asset(db_session, "FRA8TEST-FAIL")
 
     def boom(*args: object, **kwargs: object) -> None:
@@ -361,9 +390,9 @@ def test_sync_ohlcv_fetch_failure_rolls_back(monkeypatch, db_session: Session) -
 def _fake_job(
     status: str,
     result: object = None,
-    args: list | None = None,
+    args: list[object] | None = None,
     exc_info: str | None = None,
-) -> SimpleNamespace:
+) -> Any:
     return SimpleNamespace(
         id="job-x",
         result=result,
@@ -381,6 +410,10 @@ def test_map_rq_status_lifecycle() -> None:
     assert map_rq_status(_fake_job("queued")) == "pending"
     assert map_rq_status(_fake_job("started")) == "running"
     assert map_rq_status(_fake_job("finished")) == "success"
+    assert (
+        map_rq_status(_fake_job("finished", result={"status": "success_no_data"}))
+        == "success_no_data"
+    )
     assert map_rq_status(_fake_job("failed")) == "failed"
 
 
@@ -428,7 +461,7 @@ class _FakeQueue:
 
     def __init__(self) -> None:
         self.jobs: dict[str, SimpleNamespace] = {}
-        self.enqueued: list[tuple] = []
+        self.enqueued: list[tuple[str, tuple[object, ...], dict[str, object]]] = []
 
     def enqueue(self, func_path: str, *args: object, **kwargs: object) -> SimpleNamespace:
         jid = f"job-{len(self.enqueued) + 1}"
@@ -469,7 +502,7 @@ def client(db_session: Session) -> Iterator[TestClient]:
 
 
 def _fake_queue_of() -> _FakeQueue:
-    return app.dependency_overrides[get_data_queue]()
+    return cast(_FakeQueue, app.dependency_overrides[get_data_queue]())
 
 
 def test_post_sync_unknown_asset_returns_404(client: TestClient) -> None:
@@ -540,7 +573,7 @@ def test_get_sync_status_success_returns_counts(client: TestClient, db_session: 
         is_finished=True,
         is_failed=False,
         args=[str(asset.id), "2024-01-01", "2024-01-05", "yfinance"],
-        result={"inserted": 5, "updated": 1, "status": "success"},
+        result={"inserted": 5, "updated": 1, "total_bars": 6, "status": "success"},
         exc_info=None,
     )
     _fake_queue_of().jobs["job-done"] = job
@@ -551,7 +584,42 @@ def test_get_sync_status_success_returns_counts(client: TestClient, db_session: 
     assert body["status"] == "success"
     assert body["inserted"] == 5
     assert body["updated"] == 1
+    assert body["total_bars"] == 6
+    assert body["warning"] is None
     assert body["asset_id"] == str(asset.id)
+    assert body["error"] is None
+
+
+def test_get_sync_status_success_no_data_returns_warning(
+    client: TestClient, db_session: Session
+) -> None:
+    asset = _make_asset(db_session, "FRA8TEST-GETNODATA")
+    job = SimpleNamespace(
+        id="job-empty",
+        is_queued=False,
+        is_started=False,
+        is_finished=True,
+        is_failed=False,
+        args=[str(asset.id), "2024-01-01", "2024-01-05", "yfinance"],
+        result={
+            "inserted": 0,
+            "updated": 0,
+            "total_bars": 0,
+            "status": "success_no_data",
+            "warning": "source returned 0 bars (likely rate-limited or unavailable)",
+        },
+        exc_info=None,
+    )
+    _fake_queue_of().jobs["job-empty"] = job
+
+    resp = client.get("/sync/job-empty")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "success_no_data"
+    assert body["inserted"] == 0
+    assert body["updated"] == 0
+    assert body["total_bars"] == 0
+    assert body["warning"] == "source returned 0 bars (likely rate-limited or unavailable)"
     assert body["error"] is None
 
 

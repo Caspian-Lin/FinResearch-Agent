@@ -43,6 +43,8 @@ function makeJob(overrides: Partial<SyncJob> = {}): SyncJob {
     source: 'yfinance',
     inserted: 0,
     updated: 0,
+    total_bars: 0,
+    warning: null,
     error: null,
     ...overrides,
   };
@@ -147,6 +149,38 @@ describe('SyncControl', () => {
     }
     expect(msg).not.toBeNull();
     // Polling stopped after the terminal failure.
+    const callsAtTerminal = getSyncJob.mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(getSyncJob.mock.calls.length).toBe(callsAtTerminal);
+  });
+
+  it('stops polling on success_no_data, warns, and still refreshes', async () => {
+    enqueueSync.mockResolvedValue({
+      job_id: 'job-1',
+      status: 'pending',
+      asset_id: 'a-1',
+      start: '2024-01-01',
+      end: '2024-01-31',
+      source: 'yfinance',
+    });
+    getSyncJob.mockResolvedValueOnce(makeJob({ status: 'success_no_data', total_bars: 0 }));
+
+    const onSuccess = vi.fn();
+    render(<SyncControl {...defaultProps({ onSuccess })} />);
+    clickSync();
+
+    let msg: ReturnType<typeof screen.queryByText> = null;
+    for (let i = 0; i < 5 && !msg; i += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1500);
+      });
+      msg = screen.queryByText(/data source returned no bars/i);
+    }
+    expect(msg).not.toBeNull();
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+
     const callsAtTerminal = getSyncJob.mock.calls.length;
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6000);

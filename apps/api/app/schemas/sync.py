@@ -34,11 +34,13 @@ class SyncJobStatus(BaseModel):
     """Lifecycle + inputs + outcome for a sync job (GET /sync/{job_id})."""
 
     job_id: str
-    status: str  # pending | running | success | failed
+    status: str  # pending | running | success | success_no_data | failed
     asset_id: uuid.UUID | None = None
     start: date | None = None
     end: date | None = None
     source: str | None = None
     inserted: int | None = None
     updated: int | None = None
+    total_bars: int | None = None
+    warning: str | None = None
     error: dict[str, str] | None = None  # {"type": ..., "message": ...}
