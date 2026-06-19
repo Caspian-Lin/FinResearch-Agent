@@ -37,6 +37,17 @@
 5. 必须展示交易成本前后表现。
 6. 必须记录每次回测参数，保证可复现。
 
+### Week 2 Audit Coverage (FRA-39)
+
+| 规则 | 实现位置 | 测试 / 文档证据 |
+|---|---|---|
+| Look-ahead bias | `run_backtest` 统一执行 `holdings = decision.shift(1)`；策略只输出决策日 target weights | `tests/test_backtest_engine.py::test_lookahead_t_day_target_does_not_move_t_day_gross`、`test_lookahead_t_minus_1_target_moves_t_day_gross` |
+| Survivorship bias | 当前 universe 由用户 watchlist / sample seed 给定；系统不声称拥有历史成分股数据库 | 本文 `Limitations` 明确限制和缓解方式 |
+| 时间切分验证 | `app.services.backtest.validation` 提供 `TimeSplit` + train 选择 / forward 评估 helper | `tests/test_backtest_validation.py` |
+| Baseline comparison | `benchmark_asset_id` 支持 QQQ/SPY 等外部 benchmark；`equity_curve.series_kind` 区分 strategy / benchmark | `tests/test_backtest_benchmark.py`、`tests/test_backtest_api.py`、前端 `BacktestCurveChart` |
+| 交易成本前后 | 引擎输出 `gross_returns` 与 net `daily_returns`；指标表存 gross/net 两套 | `tests/test_backtest_engine.py::test_cost_deduction_gap_equals_turnover_times_cost`、`tests/test_backtest_metrics.py` |
+| 参数可复现 | `backtest_runs.config_json` 写入 universe、date window、strategy、params、cost、rebalance、price field、benchmark | `tests/test_backtest_api.py::test_create_backtest_config_snapshot_contains_reproducibility_fields`、`tests/test_backtest_sensitivity.py` |
+
 ## Engine 选型（FRA-25）
 
 > Ref: 项目描述文件 §8.2 技术选择原则、§4 非目标、§11 回测评估、§12 亮点 3
@@ -119,9 +130,9 @@ class Strategy(Protocol):
 - **输出**：与输入同形状的**目标权重宽表**，每行权重之和应在 `[0, 1]`
   （允许留现金，现金权重 = `1 − Σ`）。引擎按 `weights_t` 在 `t` 日调仓。
 - **防作弊（落到接口）**：策略实现只能使用 `prices` 中 `t-1` 及更早的行。
-  引擎在传入前对 rebalance 决策点应用 `prices.shift(1)`；策略**不应**自行
-  访问未来行。等权 / 均线 / 动量等 baseline 的具体权重计算由各自策略 issue
-  实现，本 issue 不提供。
+  Week 2 引擎契约是：策略对传入的价格表产出**决策日目标权重**，引擎随后统一
+  对 target weights 执行 `decision.shift(1)` 得到实际持仓；策略**不应**自行
+  shift。等权 / 均线 / 动量等 baseline 的权重计算必须遵守该契约。
 
 ### `BacktestConfig`（`types.py`）
 
@@ -205,4 +216,45 @@ Week 3**(见下文「非目标」)。
 
 ## Limitations
 
-<!-- TODO: enumerate backtest limitations — survivorship bias, look-ahead bias mitigations, transaction cost model simplifications, regime dependence, sample size caveats. Ref: 项目描述文件 §11.3 & §4 非目标范围 -->
+Week 2 回测输出必须与以下限制一起解读；报告和 UI 不应把结果表述为投资建议或
+盈利承诺。
+
+### Survivorship / Universe
+
+当前 universe 来自用户 watchlist、seed 样例资产或一次 API 请求中的资产列表。系统
+尚未接入历史指数成分、退市证券或公司行动事件数据库，因此无法完全消除
+survivorship bias。缓解方式是：每次 run 在 `config_json.universe` 记录资产 UUID
+集合，并在 demo / report 中明确 asset universe；若用户选择的是当前仍存在的股票池，
+结论只能解释为“该给定股票池在该窗口的历史模拟”，不能外推为真实历史可投资集合。
+
+### Look-Ahead Mitigation
+
+引擎在 target weights 到实际 holdings 的边界统一执行一日延迟：
+`holdings = decision.shift(1).fillna(0)`。这保证 t 日策略信号不会影响 t 日收益。
+测试覆盖“改 t 日 target 不改变 t 日收益、改 t-1 target 才改变 t 日收益”。该机制
+只约束本地策略接口；未来若接入外部因子或 LLM 生成策略，仍必须保证输入特征本身
+没有包含未来数据。
+
+### Time Split
+
+金融时间序列不能随机切分。Week 2 提供 `TimeSplit` helper：先在 train 窗口按
+net Sharpe / annual return 选择候选配置，再把同一配置复制到更晚的 forward 窗口
+评估。该 helper 是最小可演示版本，不等同于完整 walk-forward optimization；
+完整因子研究和统计检验推迟到 Week 3。
+
+### Execution / Cost Model
+
+执行模型是日频、收盘价、权重目标模型：不模拟日内成交、滑点、冲击成本、部分成交、
+限价单、停牌成交失败或税费。`cost_bps` 是单边比例成本，应用于买入和卖出的权重
+变化。gross/net 对比可展示成本影响方向，但不是真实交易成本估计。
+
+### Benchmarks
+
+Benchmark comparison 使用同一数据源和窗口中的 QQQ/SPY 等单资产 buy-and-hold 曲线。
+若 benchmark 数据缺失，前缀缺口会被跳过，Beta / Correlation 可能为 0 或 `None`。
+缺失 benchmark 不代表策略没有市场风险，只代表当前 run 没有足够基准数据。
+
+### Sample Size / Regime Dependence
+
+短窗口、单一市场状态或单一主题股票池的回测容易过拟合。即使 train→forward demo
+通过，也只能说明该窗口下的实现链路可复现，不能证明策略稳健、可盈利或优于市场。

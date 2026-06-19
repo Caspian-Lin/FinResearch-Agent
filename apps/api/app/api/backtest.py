@@ -112,11 +112,14 @@ def create_backtest(
 
     config_json = {
         "universe": [str(a) for a in payload.universe],
+        "start": payload.start.isoformat(),
+        "end": payload.end.isoformat(),
         "strategy_name": payload.strategy_name,
         "initial_capital": payload.initial_capital,
         "cost_bps": payload.cost_bps,
         "rebalance": payload.rebalance,
         "price_field": payload.price_field,
+        "benchmark": str(payload.benchmark_asset_id) if payload.benchmark_asset_id else None,
         "strategy_params": payload.strategy_params,
     }
     run = BacktestRun(
