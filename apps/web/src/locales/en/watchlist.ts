@@ -71,12 +71,6 @@ const watchlist = {
     placeholder: 'Select a watchlist',
   },
 
-  /** Watchlist-page left sidebar (FRA-45). */
-  sidebar: {
-    title: 'Watchlists',
-    hint: 'Switch, create, or delete watchlists here.',
-  },
-
   /** Add-asset modal & flow. */
   addAsset: {
     button: 'Add asset',

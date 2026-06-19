@@ -16,7 +16,7 @@ import {
 
 function makeStorage(map: Record<string, string> = {}) {
   return {
-    getItem: (key: string) => (key in map ? (map[key] ?? null) : null),
+    getItem: (key: string) => (key in map ? map[key] ?? null : null),
   };
 }
 

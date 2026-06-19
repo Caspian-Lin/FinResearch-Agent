@@ -31,23 +31,6 @@ def get_data_queue() -> Queue:
     return _queue
 
 
-_backtest_queue: Queue | None = None
-
-
-def get_backtest_queue() -> Queue:
-    """Return a singleton RQ Queue bound to the ``backtest`` queue (FRA-36/37).
-
-    Lazy + cached, mirroring :func:`get_data_queue`. ``POST /backtest`` enqueues
-    ``worker.tasks.backtest.run_backtest_job`` here; the worker listens on this
-    queue (see ``worker/main.py``).
-    """
-    global _backtest_queue
-    if _backtest_queue is None:
-        connection = Redis.from_url(settings.redis_url)
-        _backtest_queue = Queue(name=settings.rq_queue_backtest, connection=connection)
-    return _backtest_queue
-
-
 def map_rq_status(job: Job | None) -> str:
     """Map an RQ job to pending | running | success | failed.
 

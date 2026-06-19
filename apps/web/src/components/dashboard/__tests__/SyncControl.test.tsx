@@ -14,15 +14,7 @@ import i18n from '@/i18n';
 import type { SyncEnqueueResponse, SyncJob } from '@/types/api';
 
 const mocks = vi.hoisted(() => ({
-  enqueueSync:
-    vi.fn<
-      (p: {
-        asset_id: string;
-        start: string;
-        end: string;
-        source: string;
-      }) => Promise<SyncEnqueueResponse>
-    >(),
+  enqueueSync: vi.fn<(p: { asset_id: string; start: string; end: string; source: string }) => Promise<SyncEnqueueResponse>>(),
   getSyncJob: vi.fn<(jobId: string) => Promise<SyncJob>>(),
 }));
 
@@ -130,9 +122,7 @@ describe('SyncControl', () => {
       end: '2024-01-31',
       source: 'yfinance',
     });
-    getSyncJob.mockResolvedValueOnce(
-      makeJob({ status: 'failed', error: { type: 'x', message: 'sanitized failure reason' } }),
-    );
+    getSyncJob.mockResolvedValueOnce(makeJob({ status: 'failed', error: { type: 'x', message: 'sanitized failure reason' } }));
 
     render(<SyncControl {...defaultProps()} />);
     clickSync();

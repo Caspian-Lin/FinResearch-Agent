@@ -41,19 +41,6 @@ const dashboard = {
     link: '前往自选股',
   },
 
-  /** 仪表盘侧栏(FRA-45)—— 不离开页面直接选股。 */
-  sidebar: {
-    title: '自选股',
-    /** 窄屏打开侧栏抽屉的按钮。 */
-    toggle: '选择股票',
-    /** 切换自选股列表的选择器无障碍标签与占位符。 */
-    switch: '切换自选股列表',
-    empty: {
-      assets: '该自选股列表暂无股票。',
-    },
-    manage: '管理自选股列表',
-  },
-
   filters: {
     source: '数据源',
     dateRange: '日期范围',

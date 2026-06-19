@@ -73,9 +73,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="auth-shell">
+    <div style={{ maxWidth: 400, margin: '0 auto' }}>
       {messageContext}
-      <Card className="auth-card">
+      <Card>
         <Title level={3} style={{ marginBottom: 24, textAlign: 'center' }}>
           {t('auth:register.title')}
         </Title>
