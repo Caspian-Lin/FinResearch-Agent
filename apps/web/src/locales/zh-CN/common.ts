@@ -48,12 +48,6 @@ const common = {
     chineseSimplified: '简体中文',
   },
 
-  theme: {
-    label: '主题',
-    light: '浅色',
-    dark: '深色',
-  },
-
   /** 全项目风险免责声明,两种语言下必须完整呈现且语义一致。 */
   disclaimer: {
     title: '重要免责声明',

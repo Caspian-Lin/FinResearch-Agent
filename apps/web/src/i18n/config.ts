@@ -28,7 +28,6 @@ export const NAMESPACES = [
   'watchlist',
   'dashboard',
   'errors',
-  'backtest',
 ] as const;
 export type Namespace = (typeof NAMESPACES)[number];
 
@@ -50,7 +49,10 @@ export function normalizeLanguage(raw: string | undefined): SupportedLanguage {
 
 /** Check whether a value is one of the supported languages. */
 export function isSupportedLanguage(value: unknown): value is SupportedLanguage {
-  return typeof value === 'string' && (SUPPORTED_LANGUAGES as readonly string[]).includes(value);
+  return (
+    typeof value === 'string' &&
+    (SUPPORTED_LANGUAGES as readonly string[]).includes(value)
+  );
 }
 
 /**

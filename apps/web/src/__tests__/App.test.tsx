@@ -159,16 +159,6 @@ describe('App — layout (FRA-24)', () => {
     const { container } = renderApp();
     const header = container.querySelector('header');
     expect(header).not.toBeNull();
-    expect(header).toHaveClass('app-header');
-  });
-
-  it('persists the selected theme mode and updates the document theme', async () => {
-    const user = userEvent.setup();
-    renderApp();
-
-    await user.click(screen.getByText('Dark'));
-
-    expect(window.localStorage.getItem('fra.theme')).toBe('dark');
-    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(header?.getAttribute('style') ?? '').toMatch(/position:\s*sticky/i);
   });
 });

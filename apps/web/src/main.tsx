@@ -13,7 +13,6 @@ import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import WatchlistPage from '@/pages/WatchlistPage';
 import DashboardPage from '@/pages/DashboardPage';
-import BacktestPage from '@/pages/BacktestPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -31,7 +30,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/watchlist" element={<WatchlistPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/backtest" element={<BacktestPage />} />
           </Route>
 
           {/* Unknown paths funnel toward the (protected) dashboard. */}

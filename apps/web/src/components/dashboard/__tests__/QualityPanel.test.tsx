@@ -55,10 +55,7 @@ describe('QualityPanel', () => {
   });
 
   it('truncates missing sessions past 20 and shows "+N more"', () => {
-    const missing = Array.from(
-      { length: 25 },
-      (_, i) => `2024-01-${String(i + 1).padStart(2, '0')}`,
-    );
+    const missing = Array.from({ length: 25 }, (_, i) => `2024-01-${String(i + 1).padStart(2, '0')}`);
     const report = makeReport({ missing_sessions: missing, missing_sessions_count: 25 });
     render(<QualityPanel report={report} loading={false} errorCode={null} />);
     // The truncation helper collapses the tail beyond 20 → 5 more.

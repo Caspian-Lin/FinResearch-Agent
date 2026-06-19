@@ -5,7 +5,7 @@
  * prove instant (no reload) language switching and Ant Design locale sync.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { act } from 'react';
 import { renderHook } from '@testing-library/react';
@@ -58,28 +58,32 @@ describe('LanguageSwitcher', () => {
     const user = userEvent.setup();
     await i18n.changeLanguage('en');
 
-    render(<LanguageSwitcher />);
-    // The ToggleSelect trigger shows the current language label.
-    expect(screen.getByText('English')).toBeInTheDocument();
+    const { container, unmount } = render(<LanguageSwitcher />);
+    // antd Select renders the selected value; the english label should show.
+    expect(container.textContent).toContain('English');
 
-    // Open the menu and pick 简体中文.
-    await user.click(screen.getByRole('button'));
-    const zhOption = await screen.findByRole('option', { name: '简体中文' });
+    // Open the dropdown and pick 简体中文.
+    await user.click(container.querySelector('.ant-select-selector')!);
+    const dropdown = document.querySelector('.ant-select-dropdown')!;
+    const zhOption = await within(dropdown as HTMLElement).findByText('简体中文');
     await user.click(zhOption);
 
     // Switching is instant: i18n language changed, no reload.
     expect(i18n.language).toBe('zh-CN');
     expect(window.localStorage.getItem(LANG_STORAGE_KEY)).toBe('zh-CN');
     expect(document.documentElement.lang).toBe('zh-CN');
+    unmount();
   });
 
   it('toggles back to English', async () => {
     const user = userEvent.setup();
     await i18n.changeLanguage('zh-CN');
-    render(<LanguageSwitcher />);
-    await user.click(screen.getByRole('button'));
-    const enOption = await screen.findByRole('option', { name: 'English' });
+    const { container, unmount } = render(<LanguageSwitcher />);
+    await user.click(container.querySelector('.ant-select-selector')!);
+    const dropdown = document.querySelector('.ant-select-dropdown')!;
+    const enOption = await within(dropdown as HTMLElement).findByText('English');
     await user.click(enOption);
     expect(i18n.language).toBe('en');
+    unmount();
   });
 });

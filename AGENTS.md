@@ -118,80 +118,28 @@ message auto-links it; `Fixes FRA-N` also drives status automation.
 - Feature branches cut from `dev`, named `fra-<N>-<slug>` (lowercase), e.g.
   `fra-2-fix-make-lint`.
 
-### End-to-end flow (per issue)
+### End-to-end flow
 
-Each issue goes through this loop end-to-end — don't skip steps, especially the
-gates and the merge-approval pause.
-
-1. **Read the issue** (Linear `get_issue FRA-N`) — confirm scope + acceptance
-   criteria. Missing criteria → ask before coding (see *When You're Unsure*).
+1. **Create the issue** in Linear under project `FinResearch-Agent`, with
+   explicit acceptance criteria (see *Development Rules*). Note its `FRA-N` id.
 2. **Cut a branch from `dev`**:
-   `git checkout dev && git pull --ff-only origin dev && git checkout -b <branch>`.
-   Prefer the issue's Linear `gitBranchName` (`caspianxlin/fra-<N>-<slug>`); else
-   `fra-<N>-<slug>`.
-3. **Implement** per *Code Conventions* + *Domain-Specific Rules*. **Scope
-   deviations are allowed** when there's a sound engineering reason — keep the
-   implementation, but **record the decision** in the issue description first (add
-   an "实现决策 / Implementation decisions" section via `save_issue`), so the issue
-   stays the auditable spec. The issue is the source of truth, not the PR body.
-4. **Quality gates — all green before opening a PR**:
-   - `uv run ruff format .` then `uv run ruff check .` — **whole repo** (CI runs
-     `ruff check .`; checking only the files you touched misses e.g. an `I001`
-     import-order break in an `__init__.py` you edited).
-   - `PYTHONPATH=apps/api uv run mypy <changed-dirs>` (strict).
-   - `uv run --package finresearch-api pytest`. `test_list_assets_*` may fail
-     locally from seed accumulation — it's green on CI's fresh DB, so it is **not**
-     a regression; confirm there's no *other* failure.
-   - **For migration changes**: `DATABASE_URL=… uv run --package finresearch-api
-     alembic -c infra/migrations/alembic.ini upgrade head`, then `downgrade -1`,
-     then `upgrade head` — the round-trip must be clean (see *Local dev caveats*).
-5. **Commit** — conventional-commit title, body in Chinese or English. **Never**
-   append `Co-Authored-By:` for any AI assistant (overrides defaults). End with
-   `Fixes FRA-N` so the merge auto-closes the issue.
-6. **Push + open a PR to `dev`** (`--base dev`). The body should carry: what
-   changed, any scope deviation + why, the acceptance-criteria checklist, and the
-   gate results.
-7. **Watch CI** — poll `gh pr checks <N>` until the output shows `pass`/`fail`
-   with no `pending` (both the Backend job — ruff + alembic + pytest — and the
-   Frontend job — tsc + eslint + vitest — must be green). If a `gh` command fails
-   with a transport error (`Post … EOF`, TLS timeout), retry or switch to its
-   REST/SSH equivalent — **don't mistake a network blip for a CI failure**.
-8. **Ask before merging.** With CI green, **stop and get explicit user approval
-   to merge that specific PR** — do not auto-merge on green. This is a standing
-   rule; the user approves every PR.
-9. **Merge to `dev`** with a plain **merge commit** (`merge_method=merge`) — it
-   keeps the merge commit and the Linear automation; **rebase-merge breaks the
-   Linear link**. If `gh pr merge` errors, use REST:
-   `gh api --method PUT repos/Caspian-Lin/FinResearch-Agent/pulls/<N>/merge -f
-   merge_method=merge`. Then delete the branch
-   (`git push origin --delete <branch>` + `git branch -d <branch>`) and
-   `git checkout dev && git pull --ff-only origin dev`. Locally only `dev` + `main`
-   should remain.
-10. **Verify** `get_issue FRA-N` is **Done** (the `Fixes FRA-N` + merge webhook
-    flips status). Promote `dev` → `main` only when explicitly asked.
-
-### Local dev caveats
-
-- **No Docker on this machine (WSL2).** The dev DB is a local Postgres 16 +
-  TimescaleDB, not the `docker compose` stack. Alembic reads `DATABASE_URL` from
-  `.env` — pass it explicitly when running migrations by hand
-  (`DATABASE_URL=postgresql+psycopg://finresearch:…@localhost:5432/finresearch`).
-- **Don't truncate command output with `head`/`tail` over a pipe** — it swallows
-  the real exit code and you'll misread project state. Capture with
-  `${PIPESTATUS[0]}` or let the full output through.
+   `git checkout dev && git pull && git checkout -b fra-<N>-<slug>`.
+3. **Implement**, then run the quality gates: `make lint && make test`.
+4. **Commit** with conventional-commit style (`fix(api): ...`, `feat(web): ...`).
+   No `Co-Authored-By:` trailers for AI assistants (see *Development Rules*).
+5. **Open a PR targeting `dev`**:
+   `gh pr create --base dev --head fra-<N>-<slug> --title "..." --body "...Fixes FRA-N..."`.
+   Linear auto-attaches the PR and moves the issue to **In Progress**.
+6. **Review & merge to `dev`** (`gh pr merge <N> --merge`). Linear auto-moves
+   the issue to **Done**.
+7. **Promote to `main`** once `dev` is verified:
+   `git checkout main && git pull && git merge dev && git push`.
 
 ### Tooling
 
 - `gh` CLI (>=2.94) is installed and authenticated — prefer it over the web UI
-  for PRs, reviews, and merges. On this network the GitHub **GraphQL** API
-  (`gh pr merge`, `gh pr checks --watch`, `gh pr view`) intermittently errors with
-  transport EOF; fall back to **REST** (`gh api --method PUT …/pulls/N/merge`) or
-  **SSH** (`git push`/`pull`/`fetch`) which are stable.
-- **Linear MCP** tools manage issues/projects. `save_issue` must carry a type
-  label (`Bug` / `Feature` / `Improvement`) **and** an `area:` label, plus a
-  `milestone` — don't create empty-label issues. New issue ids (`FRA-N`) are
-  auto-assigned and monotonically increasing; never assume the next number, just
-  create and read it back.
+  for PRs, reviews, and merges.
+- Linear MCP tools are available to the agent for issue/project management.
 
 ## Code Conventions
 

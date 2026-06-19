@@ -70,12 +70,6 @@ const watchlist = {
     placeholder: '请选择一个自选股',
   },
 
-  /** 自选股页面左侧栏(FRA-45)。 */
-  sidebar: {
-    title: '自选股列表',
-    hint: '在此切换、创建或删除自选股列表。',
-  },
-
   /** 添加资产 Modal 与流程。 */
   addAsset: {
     button: '添加资产',

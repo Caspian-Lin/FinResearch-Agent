@@ -123,7 +123,9 @@ describe('buildPriceChartOption', () => {
 describe('buildPriceChartOption — chart types (FRA-24)', () => {
   it('candlestick: series[0] is candlestick with [open, close, low, high] tuples', () => {
     const t = i18n.getFixedT('en', 'dashboard');
-    const bars = [makeBar({ time: '2024-01-02T00:00:00Z', open: 10, close: 12, high: 13, low: 9 })];
+    const bars = [
+      makeBar({ time: '2024-01-02T00:00:00Z', open: 10, close: 12, high: 13, low: 9 }),
+    ];
     const option = buildPriceChartOption(bars, t, { chartType: 'candle', adjust: 'raw' });
     const series = option.series as [
       { type: string; data: ([number, number, number, number] | null)[] },
@@ -251,8 +253,12 @@ describe('buildPriceChartOption — adjust toggle (FRA-24)', () => {
       chartType: 'candle',
       adjust: 'adjusted',
     });
-    const sRaw = (optionRaw.series as [{ data: ([number, number, number, number] | null)[] }])[0];
-    const sAdj = (optionAdj.series as [{ data: ([number, number, number, number] | null)[] }])[0];
+    const sRaw = (optionRaw.series as [
+      { data: ([number, number, number, number] | null)[] },
+    ])[0];
+    const sAdj = (optionAdj.series as [
+      { data: ([number, number, number, number] | null)[] },
+    ])[0];
     // raw keeps original OHLC; adjusted scales by ratio=2 → [o*2, c*2, l*2, h*2].
     expect(sRaw.data[0]).toEqual([10, 20, 9, 22]);
     expect(sAdj.data[0]).toEqual([20, 40, 18, 44]);

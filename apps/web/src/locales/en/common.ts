@@ -50,12 +50,6 @@ const common = {
     chineseSimplified: '简体中文',
   },
 
-  theme: {
-    label: 'Theme',
-    light: 'Light',
-    dark: 'Dark',
-  },
-
   /** Project-wide risk disclaimer. Must appear in both languages verbatim in intent. */
   disclaimer: {
     title: 'Important Disclaimer',
