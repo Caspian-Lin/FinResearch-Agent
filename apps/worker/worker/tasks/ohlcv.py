@@ -62,14 +62,23 @@ def sync_ohlcv(asset_id: str, start: str, end: str, source: str = "yfinance") ->
         bars = fetch_ohlcv(asset.symbol, start_d, end_d)  # retry lives inside fetch
         inserted, updated = upsert_ohlcv_bars(db, aid, source, bars)
         db.commit()
+        total_bars = len(bars)
+        status_value = "success" if total_bars > 0 else "success_no_data"
+        warning = (
+            None
+            if total_bars > 0
+            else "source returned 0 bars (likely rate-limited or unavailable)"
+        )
         logger.info(
-            "sync_ohlcv asset_id=%s source=%s [%s..%s] inserted=%d updated=%d",
+            "sync_ohlcv asset_id=%s source=%s [%s..%s] inserted=%d updated=%d total_bars=%d status=%s",
             aid,
             source,
             start,
             end,
             inserted,
             updated,
+            total_bars,
+            status_value,
         )
         return {
             "asset_id": str(aid),
@@ -78,8 +87,9 @@ def sync_ohlcv(asset_id: str, start: str, end: str, source: str = "yfinance") ->
             "end": end,
             "inserted": inserted,
             "updated": updated,
-            "total_bars": len(bars),
-            "status": "success",
+            "total_bars": total_bars,
+            "status": status_value,
+            "warning": warning,
         }
     except Exception:
         db.rollback()

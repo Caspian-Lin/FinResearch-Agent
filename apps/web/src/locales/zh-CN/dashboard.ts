@@ -41,6 +41,19 @@ const dashboard = {
     link: '前往自选股',
   },
 
+  /** 仪表盘侧栏(FRA-45)—— 不离开页面直接选股。 */
+  sidebar: {
+    title: '自选股',
+    /** 窄屏打开侧栏抽屉的按钮。 */
+    toggle: '选择股票',
+    /** 切换自选股列表的选择器无障碍标签与占位符。 */
+    switch: '切换自选股列表',
+    empty: {
+      assets: '该自选股列表暂无股票。',
+    },
+    manage: '管理自选股列表',
+  },
+
   filters: {
     source: '数据源',
     dateRange: '日期范围',
@@ -113,6 +126,7 @@ const dashboard = {
       pending: '排队中…',
       running: '同步中…',
       success: '同步完成,正在刷新数据…',
+      success_no_data: '同步完成,但数据源未返回任何数据。可能触发限流,请稍后重试或切换数据源。',
       failed: '同步失败。',
     },
     /** 轮询达到上限仍未终结时显示。 */

@@ -7,6 +7,7 @@ import auth from './auth';
 import watchlist from './watchlist';
 import dashboard from './dashboard';
 import errors from './errors';
+import backtest from './backtest';
 
 export const zhCN = {
   common,
@@ -14,6 +15,7 @@ export const zhCN = {
   watchlist,
   dashboard,
   errors,
+  backtest,
 } as const;
 
 export default zhCN;

@@ -27,6 +27,7 @@ The UI ships in **English** and **简体中文**; switch at any time from the he
 - [Data Sources, Adjusted Prices & Quality Checks](#data-sources-adjusted-prices--quality-checks)
 - [Disclaimer](#disclaimer)
 - [Week 1 Progress](#week-1-progress)
+- [Week 2 Progress](#week-2-progress)
 - [Roadmap / Next Steps](#roadmap--next-steps)
 
 ---
@@ -244,6 +245,21 @@ running, migrations + `make seed` applied.
 > [Known Limitations](#data-sources-adjusted-prices--quality-checks) and
 > `docs/week1-progress.md`.
 
+### Week 2 Backtest Demo
+
+After syncing sample assets such as `NVDA`, `AMD`, and `QQQ`, open the Backtest
+page and run two strategies over the same explicit window, for example
+`2024-01-02` to `2024-03-29`: Buy & Hold plus Moving Average Crossover or
+Momentum, with `QQQ` as benchmark. The result page shows strategy vs benchmark
+equity, drawdown, trades, and gross/net risk metrics. Each run persists its
+full parameter snapshot in `config_json`, including universe, date window,
+strategy params, rebalance, cost, price field, and benchmark.
+
+See [`docs/week2-progress.md`](./docs/week2-progress.md) and
+[`docs/backtesting-methodology.md`](./docs/backtesting-methodology.md) for the
+anti-cheat audit, train→forward validation boundary, cost assumptions, and known
+limitations.
+
 ## Data Sources, Adjusted Prices & Quality Checks
 
 Be explicit about what the data is and isn't:
@@ -305,10 +321,23 @@ Known follow-ups carried into later weeks: the sync-on-empty false-success issue
 Details — deliverables, blockers, known limitations, next week:
 [`docs/week1-progress.md`](./docs/week1-progress.md).
 
+## Week 2 Progress
+
+Week 2 — **Backtesting Engine & Risk Metrics** — is implemented as an async,
+reproducible research workflow: baseline strategies, gross/net metrics,
+benchmark comparison, result persistence, trade details, and a frontend
+configure→trigger→poll→display flow.
+
+The anti-cheat audit is documented in
+[`docs/backtesting-methodology.md`](./docs/backtesting-methodology.md), including
+look-ahead protection, survivorship-bias limitations, train→forward validation,
+cost model assumptions, and reproducibility requirements. Demo steps and
+acceptance notes live in [`docs/week2-progress.md`](./docs/week2-progress.md).
+
 ## Roadmap / Next Steps
 
 - **Week 1** ✅ Data foundation & dashboard skeleton
-- **Week 2** — Backtesting engine & risk metrics (Buy&Hold, equal-weight, MA,
+- **Week 2** ✅ Backtesting engine & risk metrics (Buy&Hold, equal-weight, MA,
   momentum; Sharpe / max drawdown / volatility / turnover vs benchmark)
 - **Week 3** — Factor research & parameter sensitivity
 - **Week 4** — Financial text & sentiment factor
@@ -316,7 +345,8 @@ Details — deliverables, blockers, known limitations, next week:
 - **Week 6** — Report generation & application materials
 
 Design docs in [`docs/`](./docs/): `architecture.md`, `database-schema.md`,
-`agent-design.md`, `backtesting-methodology.md`, `week1-progress.md`.
+`agent-design.md`, `backtesting-methodology.md`, `week1-progress.md`,
+`week2-progress.md`.
 
 ## License
 

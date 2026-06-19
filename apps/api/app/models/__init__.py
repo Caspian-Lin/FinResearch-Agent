@@ -7,8 +7,24 @@ via ``Base.metadata`` (see ``infra/migrations/env.py``).
 from __future__ import annotations
 
 from app.models.asset import Asset
+from app.models.backtest import (
+    BacktestMetrics,
+    BacktestRun,
+    EquityCurvePoint,
+    Trade,
+)
 from app.models.ohlcv import Ohlcv
 from app.models.user import User
 from app.models.watchlist import Watchlist, WatchlistItem
 
-__all__ = ["Asset", "Ohlcv", "User", "Watchlist", "WatchlistItem"]
+__all__ = [
+    "Asset",
+    "BacktestMetrics",
+    "BacktestRun",
+    "EquityCurvePoint",
+    "Ohlcv",
+    "Trade",
+    "User",
+    "Watchlist",
+    "WatchlistItem",
+]
