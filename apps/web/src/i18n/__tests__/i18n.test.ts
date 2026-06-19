@@ -22,7 +22,9 @@ describe('i18n initialization', () => {
     // In the jsdom test env, localStorage is cleared by setup.ts beforeEach,
     // and navigator.language defaults to en-US in jsdom.
     expect(i18n.isInitialized).toBe(true);
-    expect([DEFAULT_LANGUAGE, 'zh-CN']).toContain(i18n.language.split('-')[0] === 'en' ? 'en' : 'zh-CN');
+    expect([DEFAULT_LANGUAGE, 'zh-CN']).toContain(
+      i18n.language.split('-')[0] === 'en' ? 'en' : 'zh-CN',
+    );
   });
 
   it('falls back to English for a missing key (never returns the raw key)', () => {

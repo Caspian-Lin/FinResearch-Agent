@@ -161,9 +161,7 @@ describe('auth store — login()', () => {
     mocks.fetchMe.mockRejectedValue(new ApiError('network', 0, 'offline'));
 
     const store = await importFreshStore();
-    await expect(store.getState().login('x@y.com', 'pw123456')).rejects.toBeInstanceOf(
-      ApiError,
-    );
+    await expect(store.getState().login('x@y.com', 'pw123456')).rejects.toBeInstanceOf(ApiError);
     // The token WAS written by login before fetchMe threw; acceptable, since a
     // subsequent /login retry will overwrite it, and the next 401 clears it.
     // We only assert the user is not marked authenticated.
@@ -191,9 +189,9 @@ describe('auth store — register()', () => {
     mocks.registerApi.mockRejectedValue(new ApiError('conflict', 409, 'dup'));
 
     const store = await importFreshStore();
-    await expect(store.getState().register('dup@example.com', 'password123')).rejects.toBeInstanceOf(
-      ApiError,
-    );
+    await expect(
+      store.getState().register('dup@example.com', 'password123'),
+    ).rejects.toBeInstanceOf(ApiError);
   });
 });
 

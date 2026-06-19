@@ -31,18 +31,7 @@
  *    injects when wrapped in its <App> component, which we don't use).
  */
 import { useEffect } from 'react';
-import {
-  ConfigProvider,
-  Layout,
-  Typography,
-  Tag,
-  theme,
-  Alert,
-  Button,
-  Dropdown,
-  Menu,
-  Spin,
-} from 'antd';
+import { ConfigProvider, Layout, Typography, Tag, Alert, Button, Dropdown, Menu, Spin } from 'antd';
 import { UserOutlined } from '@ant-design/icons';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
@@ -53,16 +42,19 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { MenuProps } from 'antd';
 
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { ThemeModeSwitch } from '@/components/ThemeModeSwitch';
 import { useLanguage } from '@/i18n/useLanguage';
 import { setUnauthorizedHandler } from '@/api/client';
 import { useAuthStore } from '@/store/auth';
+import { ResearchThemeProvider, useResearchTheme } from '@/theme';
 
 const { Header, Content, Footer } = Layout;
 const { Title } = Typography;
 
-function App() {
+function AppContent() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const { antdTheme, palette, mode } = useResearchTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const status = useAuthStore((s) => s.status);
@@ -101,6 +93,7 @@ function App() {
   const navItems: MenuProps['items'] = [
     { key: '/dashboard', label: t('common:nav.dashboard') },
     { key: '/watchlist', label: t('common:nav.watchlist') },
+    { key: '/backtest', label: t('common:nav.backtests') },
   ];
 
   const userMenuItems: MenuProps['items'] = [
@@ -115,60 +108,41 @@ function App() {
   ];
 
   return (
-    <ConfigProvider
-      locale={antdLocale}
-      theme={{
-        algorithm: theme.defaultAlgorithm,
-        token: {
-          colorPrimary: '#1677ff',
-          borderRadius: 6,
-        },
-      }}
-    >
+    <ConfigProvider locale={antdLocale} theme={antdTheme}>
       {/* flex column + minHeight 100vh: Content (flex:1) fills, Footer sticks
           to the bottom even when page content is short. */}
-      <Layout style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-        <Header
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            background: '#001529',
-            color: '#fff',
-          }}
-        >
-          <Title level={4} style={{ color: '#fff', margin: 0, marginRight: 16 }}>
-            {t('common:appName')}
-          </Title>
-          <Tag color="blue">{t('common:version')}</Tag>
+      <Layout className="app-shell">
+        <Header className="app-header">
+          <div className="app-brand" onClick={() => navigate('/dashboard')} role="presentation">
+            <span className="app-brand-mark">FR</span>
+            <span className="app-brand-text">
+              <Title level={4} className="app-brand-title">
+                {t('common:appName')}
+              </Title>
+              <span className="app-brand-subtitle">{t('common:tagline')}</span>
+            </span>
+          </div>
+          <Tag className="app-version-tag">{t('common:version')}</Tag>
           <Menu
-            theme="dark"
+            theme={mode}
             mode="horizontal"
             selectedKeys={[location.pathname]}
             items={navItems}
-            style={{ minWidth: 200, marginLeft: 8, background: 'transparent' }}
+            className="app-nav"
             onClick={({ key }) => navigate(key)}
           />
-          <div
-            style={{
-              marginLeft: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
+          <div className="app-header-actions">
+            <ThemeModeSwitch />
             <LanguageSwitcher />
 
             {status === 'authenticated' && user ? (
               <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-                <Button type="text" style={{ color: '#fff' }} icon={<UserOutlined />}>
+                <Button type="text" className="app-user-button" icon={<UserOutlined />}>
                   {user.email}
                 </Button>
               </Dropdown>
             ) : status === 'unauthenticated' ? (
-              <Button type="link" style={{ color: '#fff' }} onClick={() => navigate('/login')}>
+              <Button type="link" onClick={() => navigate('/login')}>
                 {t('auth:signIn.submit')}
               </Button>
             ) : (
@@ -179,24 +153,34 @@ function App() {
 
         {/* No maxWidth cap (FRA-24): the dashboard fills the viewport width.
             flex:1 pushes the Footer down to the bottom on short pages. */}
-        <Content style={{ flex: 1, padding: '24px 32px' }}>
+        <Content className="app-content">
           <Outlet />
         </Content>
 
         {/* The risk disclaimer lives in the Footer so it always sits at the
             bottom of the viewport rather than floating with page content. */}
-        <Footer style={{ textAlign: 'center', color: '#888' }}>
+        <Footer className="app-footer">
           <Alert
             type="warning"
             showIcon
-            style={{ textAlign: 'left', marginBottom: 12 }}
+            className="app-disclaimer"
             message={t('common:disclaimer.title')}
             description={t('common:disclaimer.body')}
           />
-          {t('common:appName')} · {t('common:tagline')}
+          <span style={{ color: palette.muted }}>
+            {t('common:appName')} · {t('common:tagline')}
+          </span>
         </Footer>
       </Layout>
     </ConfigProvider>
+  );
+}
+
+function App() {
+  return (
+    <ResearchThemeProvider>
+      <AppContent />
+    </ResearchThemeProvider>
   );
 }
 

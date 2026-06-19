@@ -30,6 +30,7 @@ import dayjs from 'dayjs';
 import type { TFunction } from 'i18next';
 
 import type { OhlcvRead } from '@/types/api';
+import type { ChartTheme } from '@/theme';
 
 export type ChartType = 'line' | 'candle' | 'area';
 export type Adjust = 'adjusted' | 'raw';
@@ -44,13 +45,27 @@ export interface PriceChartOptions {
   ma?: { ma5?: boolean; ma20?: boolean };
   /** Price source for line/area. Defaults to 'adjusted'. No effect on candle. */
   adjust?: Adjust;
+  /** Visual theme shared with the app shell. */
+  theme?: ChartTheme;
 }
 
-/** A-share convention: up (close ≥ open) red, down green. */
-const UP_COLOR = '#ef5350';
-const DOWN_COLOR = '#26a69a';
-const MA5_COLOR = '#ff9800';
-const MA20_COLOR = '#9c27b0';
+const DEFAULT_CHART_THEME: ChartTheme = {
+  text: '#252833',
+  mutedText: '#667085',
+  gridLine: '#e7e9ef',
+  axisLine: '#c9ced8',
+  surface: '#ffffff',
+  tooltipBg: 'rgba(255, 255, 255, 0.98)',
+  tooltipBorder: '#d9dee8',
+  primary: '#b85033',
+  primarySoft: 'rgba(184, 80, 51, 0.16)',
+  quality: '#16877d',
+  warning: '#b27a00',
+  danger: '#c94135',
+  ma5: '#b98500',
+  ma20: '#7357b8',
+  volume: 'rgba(22, 135, 125, 0.34)',
+};
 
 /** A bar with a guaranteed-complete OHLC (candlestick needs all four). */
 type OhlcBar = OhlcvRead & {
@@ -95,14 +110,14 @@ export function buildPriceChartOption(
   const chartType: ChartType = opts.chartType ?? 'line';
   const showVolume = opts.showVolume ?? false;
   const adjust: Adjust = opts.adjust ?? 'adjusted';
+  const chartTheme = opts.theme ?? DEFAULT_CHART_THEME;
 
   const fieldName = t('dashboard:priceChart.field.adjustedClose');
 
   // Candlestick can't represent a null-OHLC slot, so drop such bars in candle
   // mode (keeps the axis gap-free). Line/area keep every bar (per-bar nulls are
   // handled by connectNulls / gaps).
-  const effectiveBars: readonly OhlcvRead[] =
-    chartType === 'candle' ? bars.filter(hasOhlc) : bars;
+  const effectiveBars: readonly OhlcvRead[] = chartType === 'candle' ? bars.filter(hasOhlc) : bars;
 
   // Category labels: only the days that actually have a bar. Non-trading days
   // (weekends/holidays) are absent, so the axis is gap-free.
@@ -135,10 +150,10 @@ export function buildPriceChartOption(
         return [o, c, l, h];
       }),
       itemStyle: {
-        color: UP_COLOR,
-        color0: DOWN_COLOR,
-        borderColor: UP_COLOR,
-        borderColor0: DOWN_COLOR,
+        color: chartTheme.danger,
+        color0: chartTheme.quality,
+        borderColor: chartTheme.danger,
+        borderColor0: chartTheme.quality,
       },
     };
     closesForMA = effectiveBars.map((b) => b.close);
@@ -148,8 +163,10 @@ export function buildPriceChartOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
+      lineStyle: { color: chartTheme.primary, width: 2 },
+      itemStyle: { color: chartTheme.primary },
       data: effectiveBars.map((b) => priceOf(b)),
-      ...(chartType === 'area' ? { areaStyle: { opacity: 0.15 } } : {}),
+      ...(chartType === 'area' ? { areaStyle: { color: chartTheme.primarySoft } } : {}),
     };
     closesForMA = effectiveBars.map((b) => priceOf(b));
   }
@@ -162,8 +179,8 @@ export function buildPriceChartOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      lineStyle: { color: MA5_COLOR, width: 1 },
-      itemStyle: { color: MA5_COLOR },
+      lineStyle: { color: chartTheme.ma5, width: 1.2 },
+      itemStyle: { color: chartTheme.ma5 },
       z: 10,
       data: calcMA(closesForMA, 5),
     });
@@ -174,8 +191,8 @@ export function buildPriceChartOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      lineStyle: { color: MA20_COLOR, width: 1 },
-      itemStyle: { color: MA20_COLOR },
+      lineStyle: { color: chartTheme.ma20, width: 1.2 },
+      itemStyle: { color: chartTheme.ma20 },
       z: 10,
       data: calcMA(closesForMA, 20),
     });
@@ -193,7 +210,10 @@ export function buildPriceChartOption(
       data: effectiveBars.map((b) => {
         if (b.volume == null) return null;
         const up = (b.close ?? 0) >= (b.open ?? 0);
-        return { value: b.volume, itemStyle: { color: up ? UP_COLOR : DOWN_COLOR } };
+        return {
+          value: b.volume,
+          itemStyle: { color: up ? chartTheme.danger : chartTheme.quality },
+        };
       }),
     });
   }
@@ -206,12 +226,16 @@ export function buildPriceChartOption(
   // `value`/`data` on the category axis and showed "—" for every series.
   const tooltip: EChartsOption['tooltip'] = {
     trigger: 'axis',
+    backgroundColor: chartTheme.tooltipBg,
+    borderColor: chartTheme.tooltipBorder,
+    textStyle: { color: chartTheme.text },
   };
 
   // legend lists main + MA only (volume sub-chart stays out of the legend).
   const legend = {
     data: series.filter((s) => s.type !== 'bar').map((s) => s.name as string),
     top: 0,
+    textStyle: { color: chartTheme.mutedText },
   };
 
   // xAxisIndex links the main chart and the volume sub-chart so zoom/pan on
@@ -225,7 +249,27 @@ export function buildPriceChartOption(
   const categoryAxis = {
     type: 'category' as const,
     data: tradingDays,
-    axisLabel: { hideOverlap: true },
+    axisLabel: { hideOverlap: true, color: chartTheme.mutedText },
+    axisLine: { lineStyle: { color: chartTheme.axisLine } },
+    axisTick: { lineStyle: { color: chartTheme.axisLine } },
+  };
+
+  // Compact large volume ints (e.g. 150000000 → "150M") so the y-axis labels
+  // fit inside the grid's left margin instead of overflowing it.
+  const formatVolumeLabel = (value: number) => {
+    if (value == null) return '';
+    if (value >= 1e9) return `${value / 1e9}B`;
+    if (value >= 1e6) return `${value / 1e6}M`;
+    if (value >= 1e3) return `${value / 1e3}K`;
+    return String(value);
+  };
+
+  const valueAxis = {
+    type: 'value' as const,
+    scale: true,
+    axisLabel: { color: chartTheme.mutedText },
+    axisLine: { lineStyle: { color: chartTheme.axisLine } },
+    splitLine: { lineStyle: { color: chartTheme.gridLine } },
   };
 
   if (hasVolume) {
@@ -242,8 +286,13 @@ export function buildPriceChartOption(
         { ...categoryAxis, gridIndex: 1, axisLabel: { show: false } },
       ],
       yAxis: [
-        { type: 'value', scale: true, gridIndex: 0 },
-        { type: 'value', scale: true, gridIndex: 1, splitNumber: 2 },
+        { ...valueAxis, gridIndex: 0 },
+        {
+          ...valueAxis,
+          gridIndex: 1,
+          splitNumber: 2,
+          axisLabel: { ...valueAxis.axisLabel, formatter: formatVolumeLabel },
+        },
       ],
       dataZoom,
       series,
@@ -256,7 +305,7 @@ export function buildPriceChartOption(
     legend,
     grid: { left: 48, right: 24, top: 32, bottom: 32 },
     xAxis: { ...categoryAxis },
-    yAxis: { type: 'value', scale: true },
+    yAxis: valueAxis,
     dataZoom,
     series,
   };

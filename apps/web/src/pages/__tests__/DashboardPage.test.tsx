@@ -16,12 +16,28 @@ import i18n from '@/i18n';
 import type { OhlcvRead, QualityReport } from '@/types/api';
 
 const mocks = vi.hoisted(() => ({
-  fetchOhlcv: vi.fn<(p: { asset_id: string; source: string; start: string; end: string }) => Promise<OhlcvRead[]>>(),
-  fetchQuality: vi.fn<(p: { asset_id: string; source: string; start: string; end: string }) => Promise<QualityReport>>(),
+  fetchOhlcv:
+    vi.fn<
+      (p: { asset_id: string; source: string; start: string; end: string }) => Promise<OhlcvRead[]>
+    >(),
+  fetchQuality:
+    vi.fn<
+      (p: {
+        asset_id: string;
+        source: string;
+        start: string;
+        end: string;
+      }) => Promise<QualityReport>
+    >(),
 }));
 
 vi.mock('@/api/ohlcv', () => ({ fetchOhlcv: mocks.fetchOhlcv }));
 vi.mock('@/api/quality', () => ({ fetchQuality: mocks.fetchQuality }));
+
+// The sidebar lifts useWatchlists; mock it so no real request fires and the
+// empty-selection case stays controllable (empty list → auto-select inert).
+const watchlistsMock = vi.hoisted(() => vi.fn());
+vi.mock('@/hooks/useWatchlists', () => ({ useWatchlists: watchlistsMock }));
 
 // Stub echarts-for-react so DashboardPage's PriceChart never touches canvas in
 // jsdom (the real renderer throws on null canvas context). We only need the
@@ -79,6 +95,9 @@ beforeEach(() => {
   fetchOhlcv.mockReset();
   fetchQuality.mockReset();
   useSelectionStore.getState().clearSelection();
+  watchlistsMock.mockReset();
+  // Default: no watchlists → sidebar empty, auto-select stays inert.
+  watchlistsMock.mockReturnValue({ watchlists: [], loading: false, error: null });
   void i18n.changeLanguage('en');
 });
 
@@ -220,5 +239,46 @@ describe('DashboardPage', () => {
     expect(screen.getByText('使用复权收盘价,缺失时回退到收盘价。')).toBeInTheDocument();
     expect(fetchOhlcv.mock.calls.length).toBe(ohlcvCallsBefore);
     expect(fetchQuality.mock.calls.length).toBe(qualityCallsBefore);
+  });
+
+  it('auto-selects the first asset of the first watchlist on entry', async () => {
+    watchlistsMock.mockReturnValue({
+      watchlists: [
+        {
+          watchlist_id: 'wl-1',
+          name: 'Tech',
+          created_at: '',
+          items: [
+            {
+              asset_id: 'a-1',
+              symbol: 'AAPL',
+              exchange: 'NASDAQ',
+              name: 'Apple Inc.',
+              added_at: '',
+            },
+            {
+              asset_id: 'a-2',
+              symbol: 'NVDA',
+              exchange: 'NASDAQ',
+              name: 'NVIDIA',
+              added_at: '',
+            },
+          ],
+        },
+      ],
+      loading: false,
+      error: null,
+    });
+    fetchOhlcv.mockResolvedValue([makeBar()]);
+    fetchQuality.mockResolvedValue(makeReport());
+
+    renderPage();
+
+    // First asset auto-selected → the data fetch fires for its asset_id and the
+    // main area renders (the data-limit notice only shows with a selection).
+    await waitFor(() => {
+      expect(fetchOhlcv).toHaveBeenCalledWith(expect.objectContaining({ asset_id: 'a-1' }));
+    });
+    expect(await screen.findByText('Data limitations')).toBeInTheDocument();
   });
 });

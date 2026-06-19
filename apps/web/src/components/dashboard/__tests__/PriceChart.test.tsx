@@ -86,9 +86,7 @@ describe('PriceChart', () => {
       await i18n.changeLanguage('zh-CN');
     });
 
-    expect(
-      screen.getByText('使用复权收盘价,缺失时回退到收盘价。'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('使用复权收盘价,缺失时回退到收盘价。')).toBeInTheDocument();
     // The remounted chart's option now uses the translated legend name.
     const el = screen.getByTestId('echarts');
     const option = JSON.parse(el.getAttribute('data-option') ?? '{}') as {

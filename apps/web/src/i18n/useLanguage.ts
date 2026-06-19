@@ -28,9 +28,7 @@ export interface UseLanguageResult {
 
 export function useLanguage(): UseLanguageResult {
   const { t } = useTranslation();
-  const [language, setLanguage] = useState<SupportedLanguage>(() =>
-    coerce(i18n.language),
-  );
+  const [language, setLanguage] = useState<SupportedLanguage>(() => coerce(i18n.language));
 
   useEffect(() => {
     const handler = (lng: string) => setLanguage(coerce(lng));
