@@ -167,6 +167,48 @@ def test_create_backtest_enqueues_run(client: TestClient, db_session: Session) -
     assert run.config_json["universe"] == [str(asset.id)]
 
 
+def test_create_backtest_config_snapshot_contains_reproducibility_fields(
+    client: TestClient, db_session: Session
+) -> None:
+    token, _ = _register(client, "U1B")
+    asset = _make_asset(db_session, f"{PREFIX}-SNAP")
+    benchmark = _make_asset(db_session, f"{PREFIX}-QQQ")
+
+    r = client.post(
+        "/backtest",
+        json=_payload(
+            f"{PREFIX}-snapshot",
+            asset.id,
+            start="2024-01-02",
+            end="2024-03-29",
+            benchmark_asset_id=str(benchmark.id),
+            strategy_name="ma_crossover",
+            initial_capital=250000.0,
+            cost_bps=7.5,
+            rebalance="weekly",
+            price_field="raw",
+            strategy_params={"fast": 5, "slow": 20},
+        ),
+        headers=_auth(token),
+    )
+
+    assert r.status_code == 202
+    run = db_session.get(BacktestRun, uuid.UUID(r.json()["run_id"]))
+    assert run is not None
+    assert run.config_json == {
+        "universe": [str(asset.id)],
+        "start": "2024-01-02",
+        "end": "2024-03-29",
+        "strategy_name": "ma_crossover",
+        "initial_capital": 250000.0,
+        "cost_bps": 7.5,
+        "rebalance": "weekly",
+        "price_field": "raw",
+        "benchmark": str(benchmark.id),
+        "strategy_params": {"fast": 5, "slow": 20},
+    }
+
+
 def test_create_backtest_unknown_asset_404(client: TestClient, db_session: Session) -> None:
     token, _ = _register(client, "U2")
     r = client.post(

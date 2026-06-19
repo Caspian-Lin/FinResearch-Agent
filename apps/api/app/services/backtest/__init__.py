@@ -46,6 +46,12 @@ from app.services.backtest.types import (
     RebalanceFreq,
     Trade,
 )
+from app.services.backtest.validation import (
+    TimeSplit,
+    TrainForwardValidation,
+    run_train_forward_validation,
+    split_prices_by_time,
+)
 
 __all__ = [
     "BacktestConfig",
@@ -64,7 +70,9 @@ __all__ = [
     "Strategy",
     "SweepPoint",
     "SweepSummary",
+    "TimeSplit",
     "Trade",
+    "TrainForwardValidation",
     "build_equity_curve_points",
     "build_trade_points",
     "compute_benchmark_comparison",
@@ -79,6 +87,8 @@ __all__ = [
     "persist_sweep",
     "run_backtest",
     "run_sweep",
+    "run_train_forward_validation",
+    "split_prices_by_time",
     "summarize_sweep",
     "to_metrics_orm",
 ]
