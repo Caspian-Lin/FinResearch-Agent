@@ -27,19 +27,20 @@ import {
   Modal,
   Popconfirm,
   Radio,
-  Select,
   Space,
   Spin,
   Table,
   Typography,
   message,
 } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { RadioChangeEvent } from 'antd';
 
 import { searchAssets } from '@/api/assets';
 import { ApiError } from '@/api/client';
+import { SiderLayout } from '@/components/layout/SiderLayout';
+import { WatchlistManagerSidebar } from '@/components/watchlist/WatchlistManagerSidebar';
 import { useWatchlists } from '@/hooks/useWatchlists';
 import { useSelectionStore } from '@/store/selection';
 import type { AssetRead, WatchlistItemRead } from '@/types/api';
@@ -242,15 +243,19 @@ function WatchlistPage() {
       title: t('watchlist:columns.actions'),
       key: 'actions',
       render: (_, record) => (
-        <Space>
-          <Button size="small" onClick={() => handleViewInDashboard(record)}>
+        <Space className="table-action-group">
+          <Button
+            size="small"
+            className="secondary-action-button"
+            onClick={() => handleViewInDashboard(record)}
+          >
             {t('watchlist:viewInDashboard')}
           </Button>
           <Popconfirm
             title={t('watchlist:remove.confirm')}
             onConfirm={run(() => handleRemoveAsset(record.asset_id))}
           >
-            <Button size="small" danger>
+            <Button size="small" icon={<DeleteOutlined />} className="danger-outline-button">
               {t('watchlist:remove.button')}
             </Button>
           </Popconfirm>
@@ -260,168 +265,151 @@ function WatchlistPage() {
   ];
 
   return (
-    <div>
-      {messageContext}
-
-      <Space
-        style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}
-        align="center"
-      >
-        <Title level={2} style={{ margin: 0 }}>
-          {t('watchlist:page.title')}
-        </Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-          {t('watchlist:create.button')}
-        </Button>
-      </Space>
-
-      {error && (
-        <Alert
-          type="error"
-          showIcon
-          message={t(errorMessageKey(error.code))}
-          closable
-          onClose={clearError}
-          action={
-            <Button size="small" onClick={() => void refresh()}>
-              {t('common:actions.retry')}
-            </Button>
-          }
-          style={{ marginBottom: 16 }}
+    <SiderLayout
+      sidebar={
+        <WatchlistManagerSidebar
+          watchlists={watchlists}
+          loading={loading}
+          error={null}
+          selectedWatchlistId={selectedWatchlistId}
+          onSelectWatchlist={setSelectedWatchlistId}
+          onCreateClick={() => setCreateOpen(true)}
+          onDeleteWatchlist={(id) => void handleDeleteWatchlist(id)}
+          onAddAssetClick={openAddModal}
         />
-      )}
+      }
+    >
+      <div className="page">
+        {messageContext}
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 48 }}>
-          <Spin tip={t('watchlist:loading')}>
-            <div style={{ height: 48 }} />
-          </Spin>
+        <div className="page-header">
+          <div>
+            <Title level={2} className="page-title">
+              {t('watchlist:page.title')}
+            </Title>
+          </div>
         </div>
-      ) : watchlists.length === 0 ? (
-        <Empty description={t('watchlist:empty.watchlists')} />
-      ) : (
-        <>
-          <Space style={{ marginBottom: 16 }} align="center" wrap>
-            <Text strong>{t('watchlist:switch.label')}</Text>
-            <Select
-              aria-label={t('watchlist:switch.label')}
-              value={selectedWatchlistId ?? undefined}
-              onChange={(value: string) => setSelectedWatchlistId(value)}
-              style={{ minWidth: 240 }}
-              options={watchlists.map((w) => ({ value: w.watchlist_id, label: w.name }))}
-            />
-            {selectedWatchlist && (
-              <Popconfirm
-                title={t('watchlist:delete.confirm', { name: selectedWatchlist.name })}
-                onConfirm={run(() => handleDeleteWatchlist(selectedWatchlist.watchlist_id))}
-              >
-                <Button danger icon={<DeleteOutlined />}>
-                  {t('watchlist:delete.button')}
-                </Button>
-              </Popconfirm>
-            )}
-            <Button icon={<PlusOutlined />} onClick={openAddModal}>
-              {t('watchlist:addAsset.button')}
-            </Button>
-          </Space>
 
+        {error && (
+          <Alert
+            type="error"
+            showIcon
+            message={t(errorMessageKey(error.code))}
+            closable
+            onClose={clearError}
+            action={
+              <Button size="small" onClick={() => void refresh()}>
+                {t('common:actions.retry')}
+              </Button>
+            }
+          />
+        )}
+
+        {loading ? (
+          <div className="loading-block">
+            <Spin tip={t('watchlist:loading')}>
+              <div style={{ height: 48 }} />
+            </Spin>
+          </div>
+        ) : watchlists.length === 0 ? null : (
           <Table<WatchlistItemRead>
             rowKey="asset_id"
             columns={columns}
             dataSource={selectedWatchlist?.items ?? []}
             pagination={false}
+            scroll={{ x: 760 }}
             locale={{
               emptyText: <Empty description={t('watchlist:empty.assets')} />,
             }}
           />
-        </>
-      )}
+        )}
 
-      {/* Create watchlist modal */}
-      <Modal
-        open={createOpen}
-        title={t('watchlist:create.modal.title')}
-        onCancel={() => {
-          setCreateOpen(false);
-          createForm.resetFields();
-        }}
-        confirmLoading={creating}
-        onOk={run(handleCreate)}
-        okText={t('watchlist:create.submit')}
-        cancelText={t('common:actions.cancel')}
-      >
-        <Form form={createForm} layout="vertical" preserve={false}>
-          <Form.Item
-            name="name"
-            label={t('watchlist:create.form.name.label')}
-            rules={[{ required: true, message: t('errors:validation') }]}
-          >
-            <Input placeholder={t('watchlist:create.form.name.placeholder')} autoComplete="off" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        {/* Create watchlist modal */}
+        <Modal
+          open={createOpen}
+          title={t('watchlist:create.modal.title')}
+          onCancel={() => {
+            setCreateOpen(false);
+            createForm.resetFields();
+          }}
+          confirmLoading={creating}
+          onOk={run(handleCreate)}
+          okText={t('watchlist:create.submit')}
+          cancelText={t('common:actions.cancel')}
+        >
+          <Form form={createForm} layout="vertical" preserve={false}>
+            <Form.Item
+              name="name"
+              label={t('watchlist:create.form.name.label')}
+              rules={[{ required: true, message: t('errors:validation') }]}
+            >
+              <Input placeholder={t('watchlist:create.form.name.placeholder')} autoComplete="off" />
+            </Form.Item>
+          </Form>
+        </Modal>
 
-      {/* Add asset modal */}
-      <Modal
-        open={addOpen}
-        title={t('watchlist:addAsset.modal.title')}
-        onCancel={() => setAddOpen(false)}
-        confirmLoading={adding}
-        onOk={run(handleAddAsset)}
-        okText={t('watchlist:addAsset.submit')}
-        okButtonProps={{ disabled: !pickedAssetId }}
-        cancelText={t('common:actions.cancel')}
-      >
-        <Form form={addForm} layout="vertical" preserve={false}>
-          <Form.Item
-            name="symbol"
-            label={t('watchlist:addAsset.form.symbol.label')}
-            rules={[{ required: true }]}
-          >
-            <Input
-              placeholder={t('watchlist:addAsset.form.symbol.placeholder')}
-              autoComplete="off"
-            />
-          </Form.Item>
-          <Form.Item name="exchange" label={t('watchlist:addAsset.form.exchange.label')}>
-            <Input
-              placeholder={t('watchlist:addAsset.form.exchange.placeholder')}
-              autoComplete="off"
-            />
-          </Form.Item>
-          <Button onClick={run(handleSearch)} loading={searching}>
-            {t('watchlist:addAsset.search.button')}
-          </Button>
+        {/* Add asset modal */}
+        <Modal
+          open={addOpen}
+          title={t('watchlist:addAsset.modal.title')}
+          onCancel={() => setAddOpen(false)}
+          confirmLoading={adding}
+          onOk={run(handleAddAsset)}
+          okText={t('watchlist:addAsset.submit')}
+          okButtonProps={{ disabled: !pickedAssetId }}
+          cancelText={t('common:actions.cancel')}
+        >
+          <Form form={addForm} layout="vertical" preserve={false}>
+            <Form.Item
+              name="symbol"
+              label={t('watchlist:addAsset.form.symbol.label')}
+              rules={[{ required: true }]}
+            >
+              <Input
+                placeholder={t('watchlist:addAsset.form.symbol.placeholder')}
+                autoComplete="off"
+              />
+            </Form.Item>
+            <Form.Item name="exchange" label={t('watchlist:addAsset.form.exchange.label')}>
+              <Input
+                placeholder={t('watchlist:addAsset.form.exchange.placeholder')}
+                autoComplete="off"
+              />
+            </Form.Item>
+            <Button onClick={run(handleSearch)} loading={searching}>
+              {t('watchlist:addAsset.search.button')}
+            </Button>
 
-          {searchDone && searchResults.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <Text>
-                {t('watchlist:addAsset.search.resultsCount', { count: searchResults.length })}
-              </Text>
-              <Radio.Group
-                value={pickedAssetId}
-                onChange={(e: RadioChangeEvent) => setPickedAssetId(e.target.value as string)}
-                style={{ display: 'block', marginTop: 8 }}
-              >
-                <Space direction="vertical">
-                  {searchResults.map((asset) => (
-                    <Radio key={asset.asset_id} value={asset.asset_id}>
-                      {asset.symbol} · {asset.exchange} · {asset.name}
-                    </Radio>
-                  ))}
-                </Space>
-              </Radio.Group>
-            </div>
-          )}
-          {searchDone && searchResults.length === 0 && (
-            <Empty
-              description={t('watchlist:addAsset.search.noResults')}
-              style={{ marginTop: 16 }}
-            />
-          )}
-        </Form>
-      </Modal>
-    </div>
+            {searchDone && searchResults.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <Text>
+                  {t('watchlist:addAsset.search.resultsCount', { count: searchResults.length })}
+                </Text>
+                <Radio.Group
+                  value={pickedAssetId}
+                  onChange={(e: RadioChangeEvent) => setPickedAssetId(e.target.value as string)}
+                  style={{ display: 'block', marginTop: 8 }}
+                >
+                  <Space direction="vertical">
+                    {searchResults.map((asset) => (
+                      <Radio key={asset.asset_id} value={asset.asset_id}>
+                        {asset.symbol} · {asset.exchange} · {asset.name}
+                      </Radio>
+                    ))}
+                  </Space>
+                </Radio.Group>
+              </div>
+            )}
+            {searchDone && searchResults.length === 0 && (
+              <Empty
+                description={t('watchlist:addAsset.search.noResults')}
+                style={{ marginTop: 16 }}
+              />
+            )}
+          </Form>
+        </Modal>
+      </div>
+    </SiderLayout>
   );
 }
 

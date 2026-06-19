@@ -41,6 +41,19 @@ const dashboard = {
     link: 'Go to watchlist',
   },
 
+  /** Dashboard sidebar (FRA-45) — pick an asset without leaving the page. */
+  sidebar: {
+    title: 'Watchlists',
+    /** Narrow-screen button that opens the sidebar drawer. */
+    toggle: 'Select stock',
+    /** Accessible label + placeholder for the watchlist switcher. */
+    switch: 'Switch watchlist',
+    empty: {
+      assets: 'No assets in this watchlist.',
+    },
+    manage: 'Manage watchlists',
+  },
+
   filters: {
     source: 'Source',
     dateRange: 'Date range',

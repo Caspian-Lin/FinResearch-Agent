@@ -16,6 +16,7 @@ import type { TFunction } from 'i18next';
 
 import type { EquityCurvePointRead } from '@/types/api';
 import { useLanguage } from '@/i18n/useLanguage';
+import { useResearchTheme, type ChartTheme } from '@/theme';
 
 interface BacktestCurveChartProps {
   points: EquityCurvePointRead[];
@@ -23,7 +24,7 @@ interface BacktestCurveChartProps {
   /** Stable ApiError code (e.g. "notFound"); the backend detail is never shown. */
   errorCode: string | null;
   /** Pure builder: points + t → EChartsOption. */
-  buildOption: (points: EquityCurvePointRead[], t: TFunction) => EChartsOption;
+  buildOption: (points: EquityCurvePointRead[], t: TFunction, theme: ChartTheme) => EChartsOption;
   /** i18n key for the empty-state description. */
   emptyKey: string;
   /** Chart height in px (loading placeholder matches so toggles don't jump). */
@@ -40,8 +41,12 @@ export function BacktestCurveChart({
 }: BacktestCurveChartProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const { palette } = useResearchTheme();
 
-  const option = useMemo(() => buildOption(points, t), [points, t, buildOption]);
+  const option = useMemo(
+    () => buildOption(points, t, palette.chart),
+    [points, t, buildOption, palette.chart],
+  );
 
   if (loading) {
     return (

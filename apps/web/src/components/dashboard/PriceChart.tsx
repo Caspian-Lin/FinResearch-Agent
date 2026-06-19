@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 
 import type { OhlcvRead } from '@/types/api';
 import { useLanguage } from '@/i18n/useLanguage';
+import { useResearchTheme } from '@/theme';
 import { buildPriceChartOption } from './priceChartOption';
 import type { Adjust, ChartType } from './priceChartOption';
 
@@ -52,10 +53,12 @@ export function PriceChart({
 }: PriceChartProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const { palette } = useResearchTheme();
 
   const option = useMemo(
-    () => buildPriceChartOption(bars, t, { chartType, showVolume, ma, adjust }),
-    [bars, t, chartType, showVolume, ma, adjust],
+    () =>
+      buildPriceChartOption(bars, t, { chartType, showVolume, ma, adjust, theme: palette.chart }),
+    [bars, t, chartType, showVolume, ma, adjust, palette.chart],
   );
 
   if (loading) {
@@ -88,9 +91,7 @@ export function PriceChart({
       {/* `key={language}` forces a remount on language change so the freshly
           translated option (legend/tooltip) takes effect. */}
       <ReactECharts key={language} option={option} style={{ height }} notMerge />
-      <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
-        {t('dashboard:priceChart.fallbackNote')}
-      </div>
+      <div className="chart-footnote">{t('dashboard:priceChart.fallbackNote')}</div>
     </div>
   );
 }

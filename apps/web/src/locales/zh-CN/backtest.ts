@@ -96,6 +96,7 @@ const backtest = {
   },
 
   run: {
+    new: '新建回测',
     triggered: '回测已提交。',
     polling: '回测运行中…',
     success: '回测完成。',

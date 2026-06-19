@@ -283,9 +283,7 @@ describe('RegisterPage', () => {
 
   it('shows emailExists (not backend detail) on 409 conflict', async () => {
     const user = userEvent.setup();
-    mocks.registerApi.mockRejectedValue(
-      new ApiError('conflict', 409, 'Email already registered.'),
-    );
+    mocks.registerApi.mockRejectedValue(new ApiError('conflict', 409, 'Email already registered.'));
 
     renderRegister();
     await user.type(screen.getByLabelText(/email/i), 'dup@example.com');

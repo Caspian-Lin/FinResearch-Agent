@@ -89,7 +89,9 @@ export function QualityPanel({ report, loading, errorCode }: QualityPanelProps) 
             <div key={iso}>{dayjs(iso).format('LL')}</div>
           ))}
           {missingHidden > 0 && (
-            <Text type="secondary">{t('dashboard:quality.missing.more', { count: missingHidden })}</Text>
+            <Text type="secondary">
+              {t('dashboard:quality.missing.more', { count: missingHidden })}
+            </Text>
           )}
         </div>
       )}

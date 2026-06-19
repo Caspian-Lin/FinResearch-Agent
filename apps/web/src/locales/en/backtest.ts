@@ -98,6 +98,7 @@ const backtest = {
   },
 
   run: {
+    new: 'New backtest',
     triggered: 'Backtest queued.',
     polling: 'Running backtest…',
     success: 'Backtest complete.',

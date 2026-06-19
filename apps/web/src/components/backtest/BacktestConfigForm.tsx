@@ -27,6 +27,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 
 import { searchAssets } from '@/api/assets';
+import { ToggleSelect } from '@/components/ui/ToggleSelect';
 import type {
   AssetRead,
   BacktestCreateRequest,
@@ -175,9 +176,10 @@ export function BacktestConfigForm({ watchlists, submitting, onSubmit }: Backtes
             label={t('backtest:form.watchlist')}
             rules={[{ required: true, message: t('errors:validation') }]}
           >
-            <Select
+            <ToggleSelect
               options={watchlistOptions}
               placeholder={t('backtest:form.watchlistPlaceholder')}
+              width="100%"
             />
           </Form.Item>
         </Col>
@@ -190,9 +192,10 @@ export function BacktestConfigForm({ watchlists, submitting, onSubmit }: Backtes
             label={t('backtest:form.strategy')}
             rules={[{ required: true, message: t('errors:validation') }]}
           >
-            <Select
+            <ToggleSelect
               options={STRATEGIES.map((s) => ({ value: s, label: t(`backtest:strategy.${s}`) }))}
-              onChange={(v: BacktestStrategyName) => setStrategy(v)}
+              onChange={(v: string) => setStrategy(v as BacktestStrategyName)}
+              width="100%"
             />
           </Form.Item>
         </Col>
@@ -250,21 +253,23 @@ export function BacktestConfigForm({ watchlists, submitting, onSubmit }: Backtes
         </Col>
         <Col xs={12} md={6}>
           <Form.Item name="rebalance" label={t('backtest:form.rebalance')}>
-            <Select
+            <ToggleSelect
               options={(['daily', 'weekly', 'monthly'] as RebalanceFreq[]).map((r) => ({
                 value: r,
                 label: t(`backtest:rebalance.${r}`),
               }))}
+              width="100%"
             />
           </Form.Item>
         </Col>
         <Col xs={12} md={6}>
           <Form.Item name="priceField" label={t('backtest:form.priceField')}>
-            <Select
+            <ToggleSelect
               options={(['adjusted', 'raw'] as BacktestPriceField[]).map((p) => ({
                 value: p,
                 label: t(`backtest:priceField.${p}`),
               }))}
+              width="100%"
             />
           </Form.Item>
         </Col>

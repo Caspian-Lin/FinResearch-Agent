@@ -14,9 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Card, Col, Empty, Row, Spin, Table, Typography, message } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
+import { Alert, Card, Col, Empty, Row, Spin, Typography, message } from 'antd';
 
 import { createBacktest, getBacktest, listBacktests } from '@/api/backtest';
 import { ApiError } from '@/api/client';
@@ -24,6 +22,7 @@ import { fetchQuality } from '@/api/quality';
 import { useWatchlists } from '@/hooks/useWatchlists';
 import { BacktestConfigForm } from '@/components/backtest/BacktestConfigForm';
 import { BacktestCurveChart } from '@/components/backtest/BacktestCurveChart';
+import { BacktestHistorySidebar } from '@/components/backtest/BacktestHistorySidebar';
 import { MetricsCards } from '@/components/backtest/MetricsCards';
 import { PreflightSyncModal, type MissingAsset } from '@/components/backtest/PreflightSyncModal';
 import { TradesTable } from '@/components/backtest/TradesTable';
@@ -31,6 +30,7 @@ import {
   buildDrawdownOption,
   buildEquityCurveOption,
 } from '@/components/backtest/equityChartOption';
+import { SiderLayout } from '@/components/layout/SiderLayout';
 import type { BacktestCreateRequest, BacktestDetailRead, BacktestRunRead } from '@/types/api';
 
 const { Title, Text } = Typography;
@@ -56,6 +56,7 @@ function BacktestPage() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [symbolByAsset, setSymbolByAsset] = useState<Record<string, string>>({});
   const [history, setHistory] = useState<BacktestRunRead[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [preflightMissing, setPreflightMissing] = useState<MissingAsset[]>([]);
   const [preflightWindow, setPreflightWindow] = useState({ source: SOURCE, start: '', end: '' });
 
@@ -98,6 +99,7 @@ function BacktestPage() {
         getBacktest(runId)
           .then((d) => {
             setDetail(d);
+            setSelectedRunId(d.run.id);
             if (d.run.status === 'success') {
               setPhase('success');
               clearTimer();
@@ -193,6 +195,7 @@ function BacktestPage() {
       try {
         const d = await getBacktest(runId);
         setDetail(d);
+        setSelectedRunId(d.run.id);
         setSymbolByAsset({});
         if (d.run.status === 'success') {
           setPhase('success');
@@ -211,138 +214,113 @@ function BacktestPage() {
     [clearTimer, startPolling, messageApi, t],
   );
 
-  const historyColumns: ColumnsType<BacktestRunRead> = [
-    { title: t('backtest:history.run'), dataIndex: 'name', key: 'name' },
-    {
-      title: t('backtest:history.strategy'),
-      dataIndex: 'strategy_type',
-      key: 'strategy',
-      render: (s: string) => t(`backtest:strategy.${s}`, { defaultValue: s }),
-    },
-    {
-      title: t('backtest:history.status'),
-      dataIndex: 'status',
-      key: 'status',
-      render: (s: string) => t(`backtest:status.${s}`, { defaultValue: s }),
-    },
-    {
-      title: t('backtest:history.created'),
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (c: string) => dayjs(c).format('YYYY-MM-DD HH:mm'),
-    },
-  ];
-
   return (
-    <div>
-      {messageContext}
-      <Title level={2} style={{ marginBottom: 4 }}>
-        {t('backtest:page.title')}
-      </Title>
-      <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-        {t('backtest:page.description')}
-      </Text>
-
-      <Card title={t('backtest:form.title')} size="small" style={{ marginBottom: 16 }}>
-        <BacktestConfigForm
-          watchlists={watchlists}
-          submitting={submitting}
-          onSubmit={(req, symbols) => void handleRun(req, symbols)}
+    <SiderLayout
+      sidebar={
+        <BacktestHistorySidebar
+          history={history}
+          loading={false}
+          selectedRunId={selectedRunId}
+          onOpenRun={(id) => void handleOpenHistory(id)}
+          onNewRun={() =>
+            document.getElementById('backtest-config')?.scrollIntoView({ behavior: 'smooth' })
+          }
         />
-      </Card>
-
-      {phase === 'polling' && (
-        <div style={{ textAlign: 'center', padding: 48 }}>
-          <Spin tip={t('backtest:run.polling')}>
-            <div style={{ height: 48 }} />
-          </Spin>
+      }
+    >
+      <div className="page">
+        {messageContext}
+        <div className="page-header">
+          <div>
+            <Title level={2} className="page-title">
+              {t('backtest:page.title')}
+            </Title>
+            <Text type="secondary" className="page-description">
+              {t('backtest:page.description')}
+            </Text>
+          </div>
         </div>
-      )}
 
-      {phase === 'timeout' && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message={t('backtest:run.timeout')}
-        />
-      )}
-
-      {phase === 'failed' && detail && (
-        <Alert
-          type="error"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message={t('backtest:run.failed')}
-          description={detail.run.error_message ?? undefined}
-        />
-      )}
-
-      {detail && (phase === 'success' || phase === 'failed') && (
-        <Row gutter={[16, 16]}>
-          <Col span={24}>
-            <MetricsCards metrics={detail.metrics} />
-          </Col>
-          <Col xs={24} lg={12}>
-            <Card title={t('backtest:equity.title')} size="small">
-              <BacktestCurveChart
-                points={detail.equity_curve}
-                loading={false}
-                errorCode={null}
-                buildOption={buildEquityCurveOption}
-                emptyKey="backtest:equity.noData"
-              />
-            </Card>
-          </Col>
-          <Col xs={24} lg={12}>
-            <Card title={t('backtest:drawdown.title')} size="small">
-              <BacktestCurveChart
-                points={detail.equity_curve}
-                loading={false}
-                errorCode={null}
-                buildOption={buildDrawdownOption}
-                emptyKey="backtest:drawdown.noData"
-              />
-            </Card>
-          </Col>
-          <Col span={24}>
-            <Card title={t('backtest:trades.title')} size="small">
-              {detail.trades.length > 0 ? (
-                <TradesTable trades={detail.trades} symbolByAsset={symbolByAsset} />
-              ) : (
-                <Empty description={t('backtest:trades.empty')} />
-              )}
-            </Card>
-          </Col>
-        </Row>
-      )}
-
-      {phase === 'idle' && !detail && <Empty description={t('backtest:page.empty')} />}
-
-      <Card title={t('backtest:history.title')} size="small" style={{ marginTop: 16 }}>
-        {history.length > 0 ? (
-          <Table<BacktestRunRead>
-            rowKey="id"
-            columns={historyColumns}
-            dataSource={history}
-            size="small"
-            pagination={{ pageSize: 5, showSizeChanger: false }}
-            onRow={(record) => ({ onClick: () => void handleOpenHistory(record.id) })}
+        <Card id="backtest-config" title={t('backtest:form.title')} size="small" className="panel">
+          <BacktestConfigForm
+            watchlists={watchlists}
+            submitting={submitting}
+            onSubmit={(req, symbols) => void handleRun(req, symbols)}
           />
-        ) : (
-          <Empty description={t('backtest:history.empty')} />
-        )}
-      </Card>
+        </Card>
 
-      <PreflightSyncModal
-        open={preflightMissing.length > 0}
-        missing={preflightMissing}
-        source={preflightWindow.source}
-        start={preflightWindow.start}
-        end={preflightWindow.end}
-        onCancel={() => setPreflightMissing([])}
-      />
-    </div>
+        {phase === 'polling' && (
+          <div className="loading-block">
+            <Spin tip={t('backtest:run.polling')}>
+              <div style={{ height: 48 }} />
+            </Spin>
+          </div>
+        )}
+
+        {phase === 'timeout' && (
+          <Alert type="warning" showIcon message={t('backtest:run.timeout')} />
+        )}
+
+        {phase === 'failed' && detail && (
+          <Alert
+            type="error"
+            showIcon
+            message={t('backtest:run.failed')}
+            description={detail.run.error_message ?? undefined}
+          />
+        )}
+
+        {detail && (phase === 'success' || phase === 'failed') && (
+          <Row gutter={[16, 16]}>
+            <Col span={24}>
+              <MetricsCards metrics={detail.metrics} />
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card title={t('backtest:equity.title')} size="small" className="panel">
+                <BacktestCurveChart
+                  points={detail.equity_curve}
+                  loading={false}
+                  errorCode={null}
+                  buildOption={buildEquityCurveOption}
+                  emptyKey="backtest:equity.noData"
+                />
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card title={t('backtest:drawdown.title')} size="small" className="panel">
+                <BacktestCurveChart
+                  points={detail.equity_curve}
+                  loading={false}
+                  errorCode={null}
+                  buildOption={buildDrawdownOption}
+                  emptyKey="backtest:drawdown.noData"
+                />
+              </Card>
+            </Col>
+            <Col span={24}>
+              <Card title={t('backtest:trades.title')} size="small" className="panel">
+                {detail.trades.length > 0 ? (
+                  <TradesTable trades={detail.trades} symbolByAsset={symbolByAsset} />
+                ) : (
+                  <Empty description={t('backtest:trades.empty')} />
+                )}
+              </Card>
+            </Col>
+          </Row>
+        )}
+
+        {phase === 'idle' && !detail && <Empty description={t('backtest:page.empty')} />}
+
+        <PreflightSyncModal
+          open={preflightMissing.length > 0}
+          missing={preflightMissing}
+          source={preflightWindow.source}
+          start={preflightWindow.start}
+          end={preflightWindow.end}
+          onCancel={() => setPreflightMissing([])}
+        />
+      </div>
+    </SiderLayout>
   );
 }
 

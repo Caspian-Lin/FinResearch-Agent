@@ -12,7 +12,7 @@
  * `重要免责声明`) and antd's `Empty` description.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, within, act } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Empty } from 'antd';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -39,15 +39,17 @@ function renderAppWith(node: React.ReactNode) {
 }
 
 async function switchLanguageViaUI(user: ReturnType<typeof userEvent.setup>, label: string) {
-  const selectors = document.querySelectorAll('.ant-select-selector');
-  // The language switcher is the last Select in the header.
-  const appSelect = selectors[selectors.length - 1] as HTMLElement;
+  // The LanguageSwitcher is a custom ToggleSelect; its trigger button shows the
+  // active language name. Open it and pick the target option.
+  const trigger = Array.from(screen.getAllByRole('button')).find((b) =>
+    /English|简体中文/.test(b.textContent ?? ''),
+  ) as HTMLElement;
   await act(async () => {
-    await user.click(appSelect);
+    await user.click(trigger);
   });
-  const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+  const option = await screen.findByRole('option', { name: label });
   await act(async () => {
-    await user.click(await within(dropdown).findByText(label));
+    await user.click(option);
   });
 }
 

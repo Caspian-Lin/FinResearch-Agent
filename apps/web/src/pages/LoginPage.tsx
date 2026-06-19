@@ -72,8 +72,8 @@ export default function LoginPage() {
   const sessionExpired = Boolean(from);
 
   return (
-    <div style={{ maxWidth: 400, margin: '0 auto' }}>
-      <Card>
+    <div className="auth-shell">
+      <Card className="auth-card">
         <Title level={3} style={{ marginBottom: 24, textAlign: 'center' }}>
           {t('auth:signIn.title')}
         </Title>

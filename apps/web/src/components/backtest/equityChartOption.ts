@@ -22,6 +22,25 @@ import dayjs from 'dayjs';
 import type { TFunction } from 'i18next';
 
 import type { EquityCurvePointRead } from '@/types/api';
+import type { ChartTheme } from '@/theme';
+
+const DEFAULT_CHART_THEME: ChartTheme = {
+  text: '#252833',
+  mutedText: '#667085',
+  gridLine: '#e7e9ef',
+  axisLine: '#c9ced8',
+  surface: '#ffffff',
+  tooltipBg: 'rgba(255, 255, 255, 0.98)',
+  tooltipBorder: '#d9dee8',
+  primary: '#b85033',
+  primarySoft: 'rgba(184, 80, 51, 0.16)',
+  quality: '#16877d',
+  warning: '#b27a00',
+  danger: '#c94135',
+  ma5: '#b98500',
+  ma20: '#7357b8',
+  volume: 'rgba(22, 135, 125, 0.34)',
+};
 
 /** Sort ascending by ISO `time`. */
 function sortByTime(a: EquityCurvePointRead, b: EquityCurvePointRead): number {
@@ -51,6 +70,7 @@ function splitByKind(points: EquityCurvePointRead[]): {
 export function buildEquityCurveOption(
   points: EquityCurvePointRead[],
   t: TFunction,
+  theme: ChartTheme = DEFAULT_CHART_THEME,
 ): EChartsOption {
   const { strategy, benchmark } = splitByKind(points);
   const times = strategy.map((p) => dayLabel(p.time));
@@ -62,6 +82,8 @@ export function buildEquityCurveOption(
       name: t('backtest:equity.strategy'),
       type: 'line',
       showSymbol: false,
+      lineStyle: { color: theme.primary, width: 2 },
+      itemStyle: { color: theme.primary },
       data: times.map((tk) => stratMap.get(tk) ?? null),
     },
   ];
@@ -71,16 +93,37 @@ export function buildEquityCurveOption(
       type: 'line',
       showSymbol: false,
       connectNulls: false,
+      lineStyle: { color: theme.quality, width: 2 },
+      itemStyle: { color: theme.quality },
       data: times.map((tk) => benchMap.get(tk) ?? null),
     });
   }
 
   return {
-    tooltip: { trigger: 'axis' },
-    legend: { top: 0, data: series.map((s) => s.name as string) },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: theme.tooltipBg,
+      borderColor: theme.tooltipBorder,
+      textStyle: { color: theme.text },
+    },
+    legend: {
+      top: 0,
+      data: series.map((s) => s.name as string),
+      textStyle: { color: theme.mutedText },
+    },
     grid: { left: 56, right: 24, top: 32, bottom: 32 },
-    xAxis: { type: 'category', data: times, axisLabel: { hideOverlap: true } },
-    yAxis: { type: 'value', scale: true },
+    xAxis: {
+      type: 'category',
+      data: times,
+      axisLabel: { hideOverlap: true, color: theme.mutedText },
+      axisLine: { lineStyle: { color: theme.axisLine } },
+    },
+    yAxis: {
+      type: 'value',
+      scale: true,
+      axisLabel: { color: theme.mutedText },
+      splitLine: { lineStyle: { color: theme.gridLine } },
+    },
     dataZoom: [{ type: 'inside' }],
     series,
   };
@@ -91,7 +134,11 @@ export function buildEquityCurveOption(
  * as a percent. Strategy is filled with a light area; benchmark (if present) is
  * overlaid and may gap on the prefix.
  */
-export function buildDrawdownOption(points: EquityCurvePointRead[], t: TFunction): EChartsOption {
+export function buildDrawdownOption(
+  points: EquityCurvePointRead[],
+  t: TFunction,
+  theme: ChartTheme = DEFAULT_CHART_THEME,
+): EChartsOption {
   const { strategy, benchmark } = splitByKind(points);
   const times = strategy.map((p) => dayLabel(p.time));
   const stratMap = new Map(strategy.map((p) => [dayLabel(p.time), p.drawdown]));
@@ -102,7 +149,9 @@ export function buildDrawdownOption(points: EquityCurvePointRead[], t: TFunction
       name: t('backtest:equity.strategy'),
       type: 'line',
       showSymbol: false,
-      areaStyle: { opacity: 0.15 },
+      lineStyle: { color: theme.danger, width: 2 },
+      itemStyle: { color: theme.danger },
+      areaStyle: { color: theme.primarySoft },
       data: times.map((tk) => stratMap.get(tk) ?? null),
     },
   ];
@@ -112,7 +161,9 @@ export function buildDrawdownOption(points: EquityCurvePointRead[], t: TFunction
       type: 'line',
       showSymbol: false,
       connectNulls: false,
-      areaStyle: { opacity: 0.1 },
+      lineStyle: { color: theme.warning, width: 2 },
+      itemStyle: { color: theme.warning },
+      areaStyle: { opacity: 0.08 },
       data: times.map((tk) => benchMap.get(tk) ?? null),
     });
   }
@@ -124,13 +175,32 @@ export function buildDrawdownOption(points: EquityCurvePointRead[], t: TFunction
   };
 
   return {
-    tooltip: { trigger: 'axis', valueFormatter: (value) => pct(value) },
-    legend: { top: 0, data: series.map((s) => s.name as string) },
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (value) => pct(value),
+      backgroundColor: theme.tooltipBg,
+      borderColor: theme.tooltipBorder,
+      textStyle: { color: theme.text },
+    },
+    legend: {
+      top: 0,
+      data: series.map((s) => s.name as string),
+      textStyle: { color: theme.mutedText },
+    },
     grid: { left: 56, right: 24, top: 32, bottom: 32 },
-    xAxis: { type: 'category', data: times, axisLabel: { hideOverlap: true } },
+    xAxis: {
+      type: 'category',
+      data: times,
+      axisLabel: { hideOverlap: true, color: theme.mutedText },
+      axisLine: { lineStyle: { color: theme.axisLine } },
+    },
     yAxis: {
       type: 'value',
-      axisLabel: { formatter: (value: number) => `${(value * 100).toFixed(0)}%` },
+      axisLabel: {
+        color: theme.mutedText,
+        formatter: (value: number) => `${(value * 100).toFixed(0)}%`,
+      },
+      splitLine: { lineStyle: { color: theme.gridLine } },
     },
     dataZoom: [{ type: 'inside' }],
     series,
