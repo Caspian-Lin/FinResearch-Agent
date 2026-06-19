@@ -84,7 +84,7 @@ export function PreflightSyncModal({
   }, [open, missing]);
 
   const doneCount = jobs.filter((j) => j.status === 'success').length;
-  const failedJobs = jobs.filter((j) => j.status === 'failed');
+  const failedJobs = jobs.filter((j) => j.status === 'failed' || j.status === 'success_no_data');
 
   const handleSync = useCallback(() => {
     setPhase('syncing');
@@ -140,15 +140,23 @@ export function PreflightSyncModal({
               const idx = enqueued[i].idx;
               cur = cur.map((j, jidx) =>
                 jidx === idx
-                  ? { ...j, status: snap.status, error: snap.error?.message ?? null }
+                  ? { ...j, status: snap.status, error: snap.warning ?? snap.error?.message ?? null }
                   : j,
               );
-              if (snap.status !== 'success' && snap.status !== 'failed') allTerminal = false;
+              if (
+                snap.status !== 'success' &&
+                snap.status !== 'success_no_data' &&
+                snap.status !== 'failed'
+              ) {
+                allTerminal = false;
+              }
             });
             setJobs(cur);
 
             const allSuccess = cur.every((j) => j.status === 'success');
-            const anyFailed = cur.some((j) => j.status === 'failed');
+            const anyFailed = cur.some(
+              (j) => j.status === 'failed' || j.status === 'success_no_data',
+            );
             if (allSuccess) {
               clearTimer();
               setPhase('done');

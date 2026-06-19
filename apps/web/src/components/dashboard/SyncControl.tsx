@@ -6,13 +6,14 @@
  * 60-poll cap (~90s) is hit.
  *
  * Polling MUST terminate on every exit path:
- *  - terminal status (success/failed) → stop + surface result
+ *  - terminal status (success/success_no_data/failed) → stop + surface result
  *  - poll cap reached → stop + timeout message
  *  - component unmount → clearTimeout in the effect cleanup
  *
- * On success the parent's `onSuccess` refetches ohlcv + quality. On failure we
- * show the job's sanitized `error.message` (this is a job-level message, not a
- * raw API `detail`, so it is safe to display).
+ * On success and success_no_data the parent's `onSuccess` refetches ohlcv +
+ * quality. A no-data terminal state is shown as a warning so provider
+ * rate-limits / empty responses are not reported as successful data ingestion.
+ * On failure we show the job's sanitized `error.message`.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Spin, Typography, message } from 'antd';
@@ -119,6 +120,11 @@ export function SyncControl({ assetId, source, start, end, onSuccess }: SyncCont
             setPhase('success');
             clearTimer();
             messageApi.success(t('dashboard:sync.status.success'));
+            onSuccessRef.current();
+          } else if (job.status === 'success_no_data') {
+            setPhase('success');
+            clearTimer();
+            messageApi.warning(t('dashboard:sync.status.success_no_data'));
             onSuccessRef.current();
           } else if (job.status === 'failed') {
             setPhase('failed');

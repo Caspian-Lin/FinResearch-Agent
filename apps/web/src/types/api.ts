@@ -145,8 +145,8 @@ export interface SyncEnqueueResponse {
   source: string;
 }
 
-/** Lifecycle status of a sync job (FRA-8). */
-export type SyncJobStatus = 'pending' | 'running' | 'success' | 'failed';
+/** Lifecycle status of a sync job (FRA-8/FRA-22). */
+export type SyncJobStatus = 'pending' | 'running' | 'success' | 'success_no_data' | 'failed';
 
 /**
  * A sync job snapshot (FRA-8 `GET /sync/{job_id}`).
@@ -164,6 +164,8 @@ export interface SyncJob {
   source: string | null;
   inserted: number | null;
   updated: number | null;
+  total_bars: number | null;
+  warning: string | null;
   error: { type: string; message: string } | null;
 }
 

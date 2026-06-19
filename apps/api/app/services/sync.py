@@ -49,17 +49,21 @@ def get_backtest_queue() -> Queue:
 
 
 def map_rq_status(job: Job | None) -> str:
-    """Map an RQ job to pending | running | success | failed.
+    """Map an RQ job to pending | running | success | success_no_data | failed.
 
     A ``None`` job (e.g. expired result) is treated as ``pending`` so the caller
     can decide whether to surface it differently; finished-but-failed wins over
-    finished so exception state is never hidden behind a success marker.
+    finished so exception state is never hidden behind a success marker. Finished
+    sync jobs may carry a domain status in ``job.result["status"]``; preserve
+    ``success_no_data`` so an empty provider response is not reported as success.
     """
     if job is None:
         return "pending"
     if job.is_failed:
         return "failed"
     if job.is_finished:
+        if isinstance(job.result, dict) and job.result.get("status") == "success_no_data":
+            return "success_no_data"
         return "success"
     if job.is_started:
         return "running"

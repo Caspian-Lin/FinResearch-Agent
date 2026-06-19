@@ -129,6 +129,7 @@ const backtest = {
       pending: '排队中…',
       running: '拉取中…',
       success: '完成',
+      success_no_data: '无数据',
       failed: '失败',
     },
   },

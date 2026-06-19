@@ -116,5 +116,7 @@ def get_sync_status(job_id: str, queue: DataQueue) -> SyncJobStatus:
         source=inputs.get("source"),
         inserted=result.get("inserted") if result else None,
         updated=result.get("updated") if result else None,
+        total_bars=result.get("total_bars") if result else None,
+        warning=result.get("warning") if result else None,
         error=safe_error_summary(job),
     )

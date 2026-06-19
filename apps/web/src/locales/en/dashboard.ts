@@ -126,6 +126,8 @@ const dashboard = {
       pending: 'Queued…',
       running: 'Syncing…',
       success: 'Sync complete. Refreshing data…',
+      success_no_data:
+        'Sync finished, but the data source returned no bars. It may be rate-limited; retry later or choose another source.',
       failed: 'Sync failed.',
     },
     /** Shown when the poll cap is reached without a terminal status. */
