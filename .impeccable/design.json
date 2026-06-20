@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-18T00:00:00+08:00",
+  "title": "Design System: FinResearch Agent",
+  "extensions": {
+    "colorMeta": {
+      "primary-crimson": {
+        "role": "primary",
+        "displayName": "Audit Crimson",
+        "canonical": "oklch(0.58 0.16 31)",
+        "tonalRamp": [
+          "oklch(0.18 0.07 31)",
+          "oklch(0.28 0.1 31)",
+          "oklch(0.42 0.13 31)",
+          "oklch(0.58 0.16 31)",
+          "oklch(0.68 0.13 31)",
+          "oklch(0.78 0.09 31)",
+          "oklch(0.88 0.05 31)",
+          "oklch(0.96 0.02 31)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Research Ink",
+        "canonical": "oklch(0.18 0.018 250)",
+        "tonalRamp": [
+          "oklch(0.12 0.018 250)",
+          "oklch(0.18 0.018 250)",
+          "oklch(0.3 0.016 250)",
+          "oklch(0.42 0.014 250)",
+          "oklch(0.58 0.012 250)",
+          "oklch(0.74 0.009 250)",
+          "oklch(0.9 0.006 250)",
+          "oklch(1 0 0)"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Pure Workspace",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.18 0 0)",
+          "oklch(0.3 0 0)",
+          "oklch(0.42 0 0)",
+          "oklch(0.58 0 0)",
+          "oklch(0.74 0 0)",
+          "oklch(0.88 0 0)",
+          "oklch(0.96 0 0)",
+          "oklch(1 0 0)"
+        ]
+      },
+      "accent-teal": {
+        "role": "primary",
+        "displayName": "Verification Teal",
+        "canonical": "oklch(0.48 0.12 185)",
+        "tonalRamp": [
+          "oklch(0.16 0.05 185)",
+          "oklch(0.28 0.08 185)",
+          "oklch(0.38 0.1 185)",
+          "oklch(0.48 0.12 185)",
+          "oklch(0.62 0.1 185)",
+          "oklch(0.76 0.07 185)",
+          "oklch(0.88 0.04 185)",
+          "oklch(0.96 0.02 185)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Page Headline",
+        "purpose": "Product page titles and high-level dashboard headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Tables, forms, alerts, explanatory copy, and dashboard controls."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "150ms-250ms ease-out",
+        "purpose": "Brief feedback for control and state transitions; no decorative choreography."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "antd-xs",
+        "value": "480px"
+      },
+      {
+        "name": "antd-md",
+        "value": "768px"
+      },
+      {
+        "name": "antd-lg",
+        "value": "992px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Decisive action button using FinResearch Agent's audit crimson.",
+      "html": "<button class=\"ds-btn-primary\">Run backtest</button>",
+      "css": ".ds-btn-primary { background: oklch(0.58 0.16 31); color: oklch(1 0 0); border: 1px solid oklch(0.58 0.16 31); border-radius: 6px; padding: 4px 15px; height: 32px; font: 520 14px/1.5715 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; transition: background 0.2s ease, border-color 0.2s ease; } .ds-btn-primary:hover { background: oklch(0.42 0.13 31); border-color: oklch(0.42 0.13 31); } .ds-btn-primary:focus-visible { outline: 2px solid oklch(0.78 0.09 31); outline-offset: 2px; }"
+    },
+    {
+      "name": "App Header",
+      "kind": "nav",
+      "refersTo": "app-header",
+      "description": "Sticky light global navigation with crimson active state and compact product controls.",
+      "html": "<header class=\"ds-app-header\"><strong>FinResearch Agent</strong><span class=\"ds-tag\">v0.1</span><nav>Dashboard&nbsp;&nbsp;Watchlist&nbsp;&nbsp;Backtests</nav></header>",
+      "css": ".ds-app-header { background: oklch(1 0 0); color: oklch(0.18 0.018 250); min-height: 60px; display: flex; align-items: center; gap: 16px; padding: 0 32px; border-bottom: 1px solid oklch(0.94 0.007 250); font: 400 14px/1.5715 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; } .ds-app-header strong { font-size: 18px; font-weight: 650; } .ds-tag { background: oklch(0.96 0.02 31); color: oklch(0.42 0.13 31); border-radius: 4px; padding: 0 7px; line-height: 22px; } .ds-app-header nav { margin-left: 8px; color: oklch(0.42 0.014 250); }"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Compact Ant Design-style metric grouping for backtest gross/net statistics.",
+      "html": "<section class=\"ds-metric-card\"><h3>Metrics</h3><dl><div><dt>Sharpe</dt><dd>1.234</dd></div><div><dt>Max drawdown</dt><dd>-12.40%</dd></div></dl></section>",
+      "css": ".ds-metric-card { background: oklch(1 0 0); border: 1px solid oklch(0.94 0.007 250); border-radius: 6px; padding: 12px 16px; font: 400 14px/1.5715 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; } .ds-metric-card h3 { margin: 0 0 12px; font-size: 16px; font-weight: 620; color: oklch(0.18 0.018 250); } .ds-metric-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; } .ds-metric-card dt { color: oklch(0.42 0.014 250); } .ds-metric-card dd { margin: 0; font-size: 20px; font-weight: 650; color: oklch(0.18 0.018 250); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Research Audit Desk",
+    "overview": "A calm, dense financial research dashboard with its own white, crimson, and teal identity. Ant Design remains an implementation substrate, but the default navy/blue brand is not the target.",
+    "keyCharacteristics": [
+      "Task-first dashboard structure",
+      "Warm crimson identity used sparingly",
+      "Teal quality and verification states",
+      "Visible risk and limitation messaging",
+      "Bilingual product UI"
+    ],
+    "rules": [
+      {
+        "name": "The Evidence Color Rule",
+        "body": "Crimson means user intent. Teal means evidence quality. Amber means caveat. Red means failure or destructive risk.",
+        "section": "colors"
+      },
+      {
+        "name": "The Audit Surface Rule",
+        "body": "Working surfaces should feel printable and inspectable. If a shadow is not communicating an overlay relationship, remove it.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep financial-risk disclaimers, data limitations, and quality warnings near the workflow they affect.",
+      "Do use crimson for intent, teal for evidence, amber for caveat, and red for failure.",
+      "Do verify English and Simplified Chinese text in navigation, filters, buttons, and empty states."
+    ],
+    "donts": [
+      "Don't preserve Ant Design's default navy/blue identity as the product brand.",
+      "Don't make the product look like a brokerage, trading terminal cosplay, crypto exchange, casino, or signal-selling page.",
+      "Don't use hype copy about beating the market, guaranteed returns, buy/sell advice, or profitable strategies.",
+      "Don't use purple-blue gradient SaaS tropes, glassmorphism, decorative chart colors, or oversized hero metrics."
+    ]
+  }
+}

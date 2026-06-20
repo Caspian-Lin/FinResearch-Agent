@@ -8,6 +8,15 @@ See ``docs/factor-research-methodology.md`` (FRA-59) and
 ``docs/backtesting-methodology.md`` §接口契约.
 """
 
+from app.services.factors.momentum import (
+    momentum,
+    momentum_21,
+    momentum_63,
+    momentum_126,
+    reversal,
+    reversal_5,
+    reversal_21,
+)
 from app.services.factors.protocols import (
     Factor,
     InformationCoefficient,
@@ -28,4 +37,11 @@ __all__ = [
     "InformationCoefficient",
     "QuantileBacktester",
     "QuantileResult",
+    "momentum",
+    "momentum_126",
+    "momentum_21",
+    "momentum_63",
+    "reversal",
+    "reversal_21",
+    "reversal_5",
 ]
