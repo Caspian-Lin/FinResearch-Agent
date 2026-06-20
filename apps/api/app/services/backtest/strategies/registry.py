@@ -12,16 +12,18 @@ from app.services.backtest.protocols import Strategy
 from app.services.backtest.strategies import (
     BuyAndHoldStrategy,
     EqualWeightStrategy,
+    FactorStrategy,
     MACrossoverStrategy,
     MomentumStrategy,
     ReversalStrategy,
 )
 
 #: 策略名 → 构造类。``config_json.strategy_name`` 必须命中其一;参数取自
-#: ``config_json.strategy_params``(如 fast/slow、lookback/top_k)。
+#: ``config_json.strategy_params``(如 fast/slow、lookback/top_k,或 factor/window)。
 _REGISTRY: dict[str, type] = {
     "buy_hold": BuyAndHoldStrategy,
     "equal_weight": EqualWeightStrategy,
+    "factor": FactorStrategy,
     "ma_crossover": MACrossoverStrategy,
     "momentum": MomentumStrategy,
     "reversal": ReversalStrategy,
@@ -33,9 +35,9 @@ def get_strategy(name: str, params: dict[str, Any] | None = None) -> Strategy:
 
     Args:
         name: 策略名(``buy_hold`` / ``equal_weight`` / ``ma_crossover`` /
-            ``momentum`` / ``reversal``)。
-        params: 透传给构造器的策略参数(如 ``{"fast": 5, "slow": 20}``);None
-            或空 → 各策略默认。
+            ``momentum`` / ``reversal`` / ``factor``)。
+        params: 透传给构造器的策略参数(如 ``{"fast": 5, "slow": 20}``、
+            ``{"factor": "rsi", "window": 14, "top_k": 3}``);None 或空 → 各策略默认。
 
     Raises:
         ValueError: 未知策略名。
