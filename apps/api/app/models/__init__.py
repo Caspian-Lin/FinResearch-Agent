@@ -13,6 +13,7 @@ from app.models.backtest import (
     EquityCurvePoint,
     Trade,
 )
+from app.models.factor import FactorValue
 from app.models.ohlcv import Ohlcv
 from app.models.user import User
 from app.models.watchlist import Watchlist, WatchlistItem
@@ -22,6 +23,7 @@ __all__ = [
     "BacktestMetrics",
     "BacktestRun",
     "EquityCurvePoint",
+    "FactorValue",
     "Ohlcv",
     "Trade",
     "User",

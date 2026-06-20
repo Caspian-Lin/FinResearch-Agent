@@ -23,10 +23,11 @@ Week 1 已实现的表(见 `init_week1_schema` 迁移):
 | watchlist | `id UUID` | 用户自选池;`UNIQUE(user_id, name)` |
 | watchlist_items | `(watchlist_id, asset_id)` | 自选池与资产多对多 |
 | ohlcv | `(asset_id, time, source)` | OHLCV 行情,TimescaleDB hypertable |
+| factor_values | `(asset_id, factor_name, time, source)` | 因子值时序,TimescaleDB hypertable |
 
-后续 issue 实现的表:`data_sync_jobs`、`data_quality_reports`、`factors`、
-`backtest_runs`、`backtest_metrics`、`research_memos`(均以 `asset_id UUID`
-外键引用 `assets(id)`)。
+后续 issue 实现的表:`data_sync_jobs`、`data_quality_reports`、
+`research_memos`。`backtest_runs`、`backtest_metrics`、`equity_curve`、`trades`
+已在 Week 2 migration 中实现;`factor_values` 已在 FRA-48 中实现。
 
 ## Identity & Keys
 
@@ -36,6 +37,10 @@ Week 1 已实现的表(见 `init_week1_schema` 迁移):
   (不同交易所可能存在相同 symbol)。
 - **ohlcv 复合主键**:`(asset_id, time, source)` 支持同一时点多数据源,且 `time`
   入主键满足 TimescaleDB hypertable 对分区列的要求。
+- **factor_values 复合主键**:`(asset_id, factor_name, time, source)` 支持同一
+  资产、同一因子、同一时点的多计算来源/版本,且 `time` 入主键满足 TimescaleDB
+  hypertable 对分区列的要求。`factor_name` 编码参数,例如 `momentum_21`、
+  `rsi_14`、`macd`、`volatility_20d`。
 
 ## TimescaleDB Hypertables
 
@@ -55,6 +60,25 @@ CREATE TABLE ohlcv (
 );
 
 SELECT create_hypertable('ohlcv', 'time');
+```
+
+```sql
+CREATE TABLE factor_values (
+    asset_id    UUID          NOT NULL REFERENCES assets(id),
+    factor_name TEXT          NOT NULL,
+    time        TIMESTAMPTZ   NOT NULL,
+    value       NUMERIC(20,8) NOT NULL,
+    source      TEXT          NOT NULL,
+    created_at  TIMESTAMPTZ   DEFAULT now(),
+    PRIMARY KEY (asset_id, factor_name, time, source)
+);
+
+SELECT create_hypertable('factor_values', 'time');
+
+CREATE INDEX ix_factor_values_factor_name_time
+    ON factor_values (factor_name, time);
+CREATE INDEX ix_factor_values_asset_id_time
+    ON factor_values (asset_id, time);
 ```
 
 ## Indexing Strategy
