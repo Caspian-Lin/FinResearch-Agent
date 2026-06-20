@@ -1,10 +1,15 @@
-"""Factor research — interface contracts (FRA-47).
+"""Factor research — contracts + factor computation (FRA-47 / 49 / 51).
 
-Week 3 foundation: typed factor data contracts and behaviour protocols. Factor
-computation (momentum / technical indicators), cross-sectional ranking,
-IC evaluation, and quantile backtesting are delivered by later issues
-(FRA-49..54); this package only locks the contracts those issues code against.
-See ``docs/factor-research-methodology.md`` (FRA-59) and
+Week 3 foundation and factor modules:
+
+* FRA-47 — typed factor data contracts and behaviour protocols.
+* FRA-49 — momentum (1M / 3M / 6M) + short-term reversal factors.
+* FRA-51 — cross-sectional ranking and normalization
+  (rank / z-score / winsorize / quantile buckets).
+
+Technical indicators (FRA-50), IC evaluation (FRA-52), quantile backtesting
+(FRA-53) and factor sensitivity (FRA-54) are delivered by later issues. See
+``docs/factor-research-methodology.md`` (FRA-59) and
 ``docs/backtesting-methodology.md`` §接口契约.
 """
 
@@ -22,6 +27,12 @@ from app.services.factors.protocols import (
     InformationCoefficient,
     QuantileBacktester,
 )
+from app.services.factors.ranking import (
+    cross_sectional_rank,
+    quantile_bucket,
+    winsorize,
+    zscore,
+)
 from app.services.factors.types import (
     FactorValue,
     ICResult,
@@ -37,11 +48,15 @@ __all__ = [
     "InformationCoefficient",
     "QuantileBacktester",
     "QuantileResult",
+    "cross_sectional_rank",
     "momentum",
     "momentum_126",
     "momentum_21",
     "momentum_63",
+    "quantile_bucket",
     "reversal",
     "reversal_21",
     "reversal_5",
+    "winsorize",
+    "zscore",
 ]
