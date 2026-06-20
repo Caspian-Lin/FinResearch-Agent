@@ -1,14 +1,15 @@
-"""Factor research — contracts + factor computation (FRA-47 / 49 / 51).
+"""Factor research — contracts + factor computation (FRA-47 / 49 / 50 / 51).
 
-Week 3 foundation and factor modules:
+Week 3 foundation and first factor modules:
 
 * FRA-47 — typed factor data contracts and behaviour protocols.
 * FRA-49 — momentum (1M / 3M / 6M) + short-term reversal factors.
+* FRA-50 — technical indicator factors (RSI / MACD / volatility).
 * FRA-51 — cross-sectional ranking and normalization
   (rank / z-score / winsorize / quantile buckets).
 
-Technical indicators (FRA-50), IC evaluation (FRA-52), quantile backtesting
-(FRA-53) and factor sensitivity (FRA-54) are delivered by later issues. See
+IC evaluation (FRA-52), quantile backtesting (FRA-53) and factor sensitivity
+(FRA-54) are delivered by later issues. See
 ``docs/factor-research-methodology.md`` (FRA-59) and
 ``docs/backtesting-methodology.md`` §接口契约.
 """
@@ -33,6 +34,16 @@ from app.services.factors.ranking import (
     winsorize,
     zscore,
 )
+from app.services.factors.technical import (
+    MacdResult,
+    macd,
+    macd_hist,
+    rsi,
+    rsi_14,
+    volatility,
+    volatility_20d,
+    volatility_63d,
+)
 from app.services.factors.types import (
     FactorValue,
     ICResult,
@@ -46,9 +57,12 @@ __all__ = [
     "ICResult",
     "ICSummary",
     "InformationCoefficient",
+    "MacdResult",
     "QuantileBacktester",
     "QuantileResult",
     "cross_sectional_rank",
+    "macd",
+    "macd_hist",
     "momentum",
     "momentum_126",
     "momentum_21",
@@ -57,6 +71,11 @@ __all__ = [
     "reversal",
     "reversal_21",
     "reversal_5",
+    "rsi",
+    "rsi_14",
+    "volatility",
+    "volatility_20d",
+    "volatility_63d",
     "winsorize",
     "zscore",
 ]
