@@ -7,6 +7,7 @@
 
 from app.services.backtest.strategies.buy_hold import BuyAndHoldStrategy
 from app.services.backtest.strategies.equal_weight import EqualWeightStrategy
+from app.services.backtest.strategies.factor import FactorStrategy
 from app.services.backtest.strategies.ma_crossover import MACrossoverStrategy
 from app.services.backtest.strategies.momentum import MomentumStrategy
 from app.services.backtest.strategies.reversal import ReversalStrategy
@@ -14,6 +15,7 @@ from app.services.backtest.strategies.reversal import ReversalStrategy
 __all__ = [
     "BuyAndHoldStrategy",
     "EqualWeightStrategy",
+    "FactorStrategy",
     "MACrossoverStrategy",
     "MomentumStrategy",
     "ReversalStrategy",
