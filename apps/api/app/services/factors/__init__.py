@@ -1,19 +1,26 @@
-"""Factor research — contracts + factor computation (FRA-47 / 49 / 50 / 51).
+"""Factor research — contracts + factor computation + IC (FRA-47 / 49 / 50 / 51 / 52).
 
-Week 3 foundation and first factor modules:
+Week 3 foundation, factor modules, and IC evaluation:
 
 * FRA-47 — typed factor data contracts and behaviour protocols.
 * FRA-49 — momentum (1M / 3M / 6M) + short-term reversal factors.
 * FRA-50 — technical indicator factors (RSI / MACD / volatility).
 * FRA-51 — cross-sectional ranking and normalization
   (rank / z-score / winsorize / quantile buckets).
+* FRA-52 — information coefficient (IC) + IR + t-stat significance.
 
-IC evaluation (FRA-52), quantile backtesting (FRA-53) and factor sensitivity
-(FRA-54) are delivered by later issues. See
-``docs/factor-research-methodology.md`` (FRA-59) and
+Quantile backtesting (FRA-53) and factor sensitivity (FRA-54) are delivered by
+later issues. See ``docs/factor-research-methodology.md`` (FRA-59) and
 ``docs/backtesting-methodology.md`` §接口契约.
 """
 
+from app.services.factors.evaluation import (
+    RankIC,
+    evaluate_ic,
+    forward_returns,
+    ic_series,
+    summarize_ic,
+)
 from app.services.factors.momentum import (
     momentum,
     momentum_21,
@@ -60,7 +67,11 @@ __all__ = [
     "MacdResult",
     "QuantileBacktester",
     "QuantileResult",
+    "RankIC",
     "cross_sectional_rank",
+    "evaluate_ic",
+    "forward_returns",
+    "ic_series",
     "macd",
     "macd_hist",
     "momentum",
@@ -73,6 +84,7 @@ __all__ = [
     "reversal_5",
     "rsi",
     "rsi_14",
+    "summarize_ic",
     "volatility",
     "volatility_20d",
     "volatility_63d",
