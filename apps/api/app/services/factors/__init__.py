@@ -1,6 +1,6 @@
-"""Factor research — contracts + factor computation + IC (FRA-47 / 49 / 50 / 51 / 52).
+"""Factor research — contracts + factor computation + IC + quantile (FRA-47..53).
 
-Week 3 foundation, factor modules, and IC evaluation:
+Week 3 foundation, factor modules, IC evaluation, and stratified backtest:
 
 * FRA-47 — typed factor data contracts and behaviour protocols.
 * FRA-49 — momentum (1M / 3M / 6M) + short-term reversal factors.
@@ -8,9 +8,10 @@ Week 3 foundation, factor modules, and IC evaluation:
 * FRA-51 — cross-sectional ranking and normalization
   (rank / z-score / winsorize / quantile buckets).
 * FRA-52 — information coefficient (IC) + IR + t-stat significance.
+* FRA-53 — stratified (quantile) backtest framework.
 
-Quantile backtesting (FRA-53) and factor sensitivity (FRA-54) are delivered by
-later issues. See ``docs/factor-research-methodology.md`` (FRA-59) and
+Factor sensitivity (FRA-54) is delivered by a later issue. See
+``docs/factor-research-methodology.md`` (FRA-59) and
 ``docs/backtesting-methodology.md`` §接口契约.
 """
 
@@ -33,8 +34,8 @@ from app.services.factors.momentum import (
 from app.services.factors.protocols import (
     Factor,
     InformationCoefficient,
-    QuantileBacktester,
 )
+from app.services.factors.quantile import QuantileBacktester
 from app.services.factors.ranking import (
     cross_sectional_rank,
     quantile_bucket,
