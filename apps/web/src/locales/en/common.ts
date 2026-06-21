@@ -18,6 +18,7 @@ const common = {
     dashboard: 'Dashboard',
     watchlist: 'Watchlist',
     backtests: 'Backtests',
+    factorResearch: 'Factor Research',
     memos: 'Research Memos',
     settings: 'Settings',
   },

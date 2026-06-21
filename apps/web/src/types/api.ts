@@ -324,3 +324,163 @@ export interface BacktestListResponse {
   items: BacktestRunRead[];
   total: number;
 }
+
+// ---------------------------------------------------------------------------
+// Factor research (FRA-56 sync API + FRA-57 async worker jobs)
+// ---------------------------------------------------------------------------
+// Mirrors the backend `app/schemas/factor.py` contract 1:1. Numeric fields are
+// JSON numbers; timestamps are ISO strings. `QuantileResult` / `ICResult` align
+// with `packages/shared` types (FRA-47). The async job `result` is a freeform
+// object whose shape varies by `run_kind` (compute=rows, quantile=curves,
+// sweep=summary) — the page casts it per kind.
+
+/** Price source column (same values as `BacktestPriceField`, kept separate for clarity). */
+export type FactorPriceField = 'raw' | 'adjusted';
+
+/** A time-series point: IC per period, quantile equity, top−bottom spread. */
+export interface TimeSeriesPoint {
+  /** ISO 8601, UTC midnight. */
+  time: string;
+  value: number;
+}
+
+/** IC summary stats (mean / ICIR / t-stat / p-value / n / positive_rate). */
+export interface ICSummary {
+  mean: number;
+  icir: number;
+  t_stat: number;
+  p_value: number;
+  n: number;
+  positive_rate: number;
+}
+
+/** IC evaluation: per-period series + summary. */
+export interface ICResult {
+  series: TimeSeriesPoint[];
+  summary: ICSummary;
+}
+
+/** Stratified (quantile) backtest: per-bucket equity + long−short + monotonicity. */
+export interface QuantileResult {
+  /** key = quantile label 1..N (1 = lowest factor value), value = that bucket's equity series. */
+  quantile_equity: Record<string, TimeSeriesPoint[]>;
+  /** long top − short bottom cumulative spread. */
+  top_minus_bottom: TimeSeriesPoint[];
+  /** monotonicity of bucket mean return vs bucket rank (Spearman; NaN if degenerate). */
+  monotonicity: number;
+}
+
+/** One dimension's sensitivity impact (FRA-54 `ParamImpact`). */
+export interface ParamImpact {
+  param: string;
+  normalized_range: number;
+  absolute_range: number;
+  high_impact: boolean;
+}
+
+/** Factor sensitivity sweep summary (FRA-54 `SweepSummary`). */
+export interface SensitivitySummary {
+  metric_table: Record<string, unknown>[];
+  param_impacts: ParamImpact[];
+  highly_sensitive: boolean;
+  best_net_sharpe: number | null;
+  worst_net_sharpe: number | null;
+}
+
+/** Factor worker job kind (mirrors backend factor run_kind values, FRA-57). */
+export type FactorJobKind = 'factor_compute' | 'factor_quantile' | 'factor_sweep';
+
+/** Factor worker job lifecycle (mirrors `BACKTEST_STATUSES`). */
+export type FactorJobStatus = 'pending' | 'running' | 'success' | 'failed';
+
+/** `POST /factors/compute` payload (sync) — also the `*-async` body. */
+export interface FactorComputeRequest {
+  name?: string;
+  universe: string[];
+  source: string;
+  start: string;
+  end: string;
+  price_field?: FactorPriceField;
+  factor_names: string[];
+}
+
+/** `POST /factors/quantile-backtest` payload (sync) — also the `*-async` body. */
+export interface QuantileBacktestRequest {
+  name?: string;
+  universe: string[];
+  source: string;
+  start: string;
+  end: string;
+  price_field?: FactorPriceField;
+  factor_name: string;
+  n_quantiles?: number;
+}
+
+/** `POST /factors/sensitivity` payload (sync) — also the `*-async` body. */
+export interface SensitivityRequest {
+  name?: string;
+  universe: string[];
+  source: string;
+  start: string;
+  end: string;
+  price_field?: FactorPriceField;
+  factors: string[];
+  windows?: Record<string, number[]> | null;
+  top_ks?: number[];
+  quantiles?: number[];
+  n_quantiles?: number;
+  rebalances?: string[];
+  cost_bands?: number[];
+}
+
+/** `POST /factors/compute` response. */
+export interface FactorComputeResponse {
+  source: string;
+  factor_names: string[];
+  rows_written: number;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** `GET /factors/{name}/ic` response. */
+export interface ICResponse {
+  factor_name: string;
+  result: ICResult;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** `POST /factors/quantile-backtest` response. */
+export interface QuantileBacktestResponse {
+  factor_name: string;
+  result: QuantileResult;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** `POST /factors/sensitivity` response. */
+export interface SensitivityResponse extends SensitivitySummary {
+  config_snapshot: Record<string, unknown>;
+}
+
+/** 202 response after a factor job is created + enqueued (FRA-57). */
+export interface FactorJobEnqueueResponse {
+  run_id: string;
+  run_kind: FactorJobKind;
+  status: 'pending';
+}
+
+/**
+ * `GET /factors/jobs/{id}` response (FRA-57): poll pending → running → success/failed.
+ *
+ * `result` is the worker-written `result_json` (shape varies by `run_kind`: compute
+ * = `{rows_written, factor_names}`, quantile = `QuantileResult`, sweep =
+ * `SensitivitySummary`); null until success. `error_message` is a short backend
+ * message surfaced only on failure.
+ */
+export interface FactorJobStatusResponse {
+  run_id: string;
+  name: string;
+  run_kind: FactorJobKind;
+  status: FactorJobStatus;
+  error_message: string | null;
+  result: Record<string, unknown> | null;
+  config_snapshot: Record<string, unknown>;
+}

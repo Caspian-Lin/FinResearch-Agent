@@ -8,6 +8,7 @@ import watchlist from './watchlist';
 import dashboard from './dashboard';
 import errors from './errors';
 import backtest from './backtest';
+import factor from './factor';
 
 export const en = {
   common,
@@ -16,6 +17,7 @@ export const en = {
   dashboard,
   errors,
   backtest,
+  factor,
 } as const;
 
 export default en;

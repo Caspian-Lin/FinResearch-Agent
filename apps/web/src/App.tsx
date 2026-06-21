@@ -94,6 +94,7 @@ function AppContent() {
     { key: '/dashboard', label: t('common:nav.dashboard') },
     { key: '/watchlist', label: t('common:nav.watchlist') },
     { key: '/backtest', label: t('common:nav.backtests') },
+    { key: '/factor-research', label: t('common:nav.factorResearch') },
   ];
 
   const userMenuItems: MenuProps['items'] = [
