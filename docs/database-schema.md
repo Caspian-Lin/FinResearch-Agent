@@ -27,7 +27,10 @@ Week 1 已实现的表(见 `init_week1_schema` 迁移):
 
 后续 issue 实现的表:`data_sync_jobs`、`data_quality_reports`、
 `research_memos`。`backtest_runs`、`backtest_metrics`、`equity_curve`、`trades`
-已在 Week 2 migration 中实现;`factor_values` 已在 FRA-48 中实现。
+已在 Week 2 migration 中实现;`factor_values` 已在 FRA-48 中实现。Week 3 给
+`backtest_runs` 加了 `run_kind`(`backtest` / `sensitivity` / `factor_sensitivity` /
+`factor_compute` / `factor_quantile` / `factor_sweep`,FRA-35/54/57)与
+`result_json`(因子 worker 异步 job 的结构化结果,FRA-57)两列。
 
 ## Identity & Keys
 

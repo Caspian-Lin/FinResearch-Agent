@@ -339,14 +339,18 @@ acceptance notes live in [`docs/week2-progress.md`](./docs/week2-progress.md).
 - **Week 1** ✅ Data foundation & dashboard skeleton
 - **Week 2** ✅ Backtesting engine & risk metrics (Buy&Hold, equal-weight, MA,
   momentum; Sharpe / max drawdown / volatility / turnover vs benchmark)
-- **Week 3** — Factor research & parameter sensitivity
+- **Week 3** ✅ Factor research & parameter sensitivity (momentum / reversal /
+  RSI / volatility factors; IC + ICIR / t-stat / p-value significance; stratified
+  quantile backtest with top−bottom spread; factor × window × cost sensitivity
+  grid; async worker jobs; factor research UI with IC chart / quantile curves /
+  heatmap). Methodology in [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
 - **Week 4** — Financial text & sentiment factor
 - **Week 5** — LLM agent research workflow
 - **Week 6** — Report generation & application materials
 
 Design docs in [`docs/`](./docs/): `architecture.md`, `database-schema.md`,
-`agent-design.md`, `backtesting-methodology.md`, `week1-progress.md`,
-`week2-progress.md`.
+`agent-design.md`, `backtesting-methodology.md`, `factor-research-methodology.md`,
+`week1-progress.md`, `week2-progress.md`.
 
 ## License
 
