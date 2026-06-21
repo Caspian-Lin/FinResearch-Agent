@@ -87,10 +87,15 @@ class ParamImpactRead(BaseModel):
 
 
 class FactorComputeRequest(BaseModel):
-    """``POST /factors/compute`` payload。"""
+    """``POST /factors/compute`` payload。
+
+    ``name`` 仅异步入队端点(``/compute-async``)用 —— 同步 ``/compute`` 不落
+    ``BacktestRun``,忽略它。
+    """
 
     model_config = ConfigDict(extra="forbid")
 
+    name: str | None = Field(default=None, max_length=255)
     universe: list[uuid.UUID] = Field(min_length=1)
     source: str
     start: date
@@ -100,10 +105,14 @@ class FactorComputeRequest(BaseModel):
 
 
 class QuantileBacktestRequest(BaseModel):
-    """``POST /factors/quantile-backtest`` payload。"""
+    """``POST /factors/quantile-backtest`` payload。
+
+    ``name`` 仅异步入队端点(``/quantile-backtest-async``)用。
+    """
 
     model_config = ConfigDict(extra="forbid")
 
+    name: str | None = Field(default=None, max_length=255)
     universe: list[uuid.UUID] = Field(min_length=1)
     source: str
     start: date
@@ -118,10 +127,12 @@ class SensitivityRequest(BaseModel):
 
     ``factors`` = 因子类型(momentum / rsi / volatility);``windows`` 可选,缺省用
     ``DEFAULT_FACTOR_WINDOWS``;``top_ks`` / ``quantiles`` 二选一或并存(选股模式)。
+    ``name`` 仅异步入队端点(``/sensitivity-async``)用。
     """
 
     model_config = ConfigDict(extra="forbid")
 
+    name: str | None = Field(default=None, max_length=255)
     universe: list[uuid.UUID] = Field(min_length=1)
     source: str
     start: date
@@ -181,4 +192,33 @@ class SensitivityResponse(BaseModel):
     highly_sensitive: bool
     best_net_sharpe: float | None
     worst_net_sharpe: float | None
+    config_snapshot: dict[str, Any]
+
+
+# --- FRA-57: 异步 worker job schemas ----------------------------------------
+
+
+class FactorJobEnqueueResponse(BaseModel):
+    """``POST /factors/*-async`` 的 202 响应:run 已建(pending)+ 入队。"""
+
+    run_id: uuid.UUID
+    run_kind: str
+    status: str = "pending"
+
+
+class FactorJobStatusResponse(BaseModel):
+    """``GET /factors/jobs/{run_id}`` 响应:轮询 pending → running → success/failed。
+
+    ``result`` 为 worker 写入 ``result_json`` 的结构化结果(success 时非空,形状随
+    ``run_kind`` 而异:compute=行数、quantile=分层净值序列、sweep=summary grid);
+    ``error_message`` 仅 failed 时填(可读失败原因,非 raw traceback)。``config_snapshot``
+    为完整入参快照(可复现,§11.3 第 6 条)。
+    """
+
+    run_id: uuid.UUID
+    name: str
+    run_kind: str
+    status: str
+    error_message: str | None
+    result: dict[str, Any] | None
     config_snapshot: dict[str, Any]
