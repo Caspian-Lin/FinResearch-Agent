@@ -66,6 +66,7 @@ const factor = {
     n: 'Periods',
     positiveRate: 'Positive rate',
     noData: 'No IC series yet — run the IC analysis first.',
+    minUniverse: 'IC analysis needs at least 2 assets (cross-sectional ranking) — add more to the universe.',
   },
 
   quantile: {
@@ -96,6 +97,27 @@ const factor = {
   },
 
   sweepUnsupported: 'This factor does not support the sensitivity sweep (momentum / RSI / volatility only).',
+
+  preflight: {
+    title: 'Missing price data',
+    body: 'These assets have insufficient price coverage in {{window}} (source: {{source}}). Sync them now?',
+    coverage: 'coverage {{pct}}%',
+    hint: 'Sync pulls bars from the data source; you will re-run the analysis once it completes.',
+    syncButton: 'Sync data',
+    syncDone: 'Data synced. Please re-run the analysis.',
+    syncFailed: 'Some assets failed to sync.',
+    syncTimeout: 'Sync timed out — please retry later.',
+    enqueueFailed: 'failed to enqueue',
+    rerunHint: 'Coverage is now updated — run the analysis again.',
+    job: {
+      queued: 'Queued',
+      pending: 'Queued…',
+      running: 'Syncing…',
+      success: 'Done',
+      success_no_data: 'No data',
+      failed: 'Failed',
+    },
+  },
 } as const;
 
 export default factor;

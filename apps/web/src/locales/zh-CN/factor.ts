@@ -63,6 +63,7 @@ const factor = {
     n: '期数',
     positiveRate: '正向率',
     noData: '暂无 IC 序列 —— 请先运行 IC 分析。',
+    minUniverse: 'IC 分析需要至少 2 个标的(截面排序),请在标的池中选择更多资产。',
   },
 
   quantile: {
@@ -93,6 +94,27 @@ const factor = {
   },
 
   sweepUnsupported: '该因子不支持敏感性扫描(仅动量/RSI/波动率)。',
+
+  preflight: {
+    title: '缺少行情数据',
+    body: '以下资产在 {{window}} 数据覆盖不足(数据源:{{source}})。现在拉取?',
+    coverage: '覆盖 {{pct}}%',
+    hint: '将从数据源拉取行情;完成后需重新运行分析。',
+    syncButton: '拉取数据',
+    syncDone: '数据已补齐,请重新运行分析。',
+    syncFailed: '部分资产拉取失败。',
+    syncTimeout: '拉取超时,请稍后重试。',
+    enqueueFailed: '提交失败',
+    rerunHint: '覆盖已更新,请再次运行分析。',
+    job: {
+      queued: '排队中',
+      pending: '排队中…',
+      running: '拉取中…',
+      success: '完成',
+      success_no_data: '无数据',
+      failed: '失败',
+    },
+  },
 } as const;
 
 export default factor;

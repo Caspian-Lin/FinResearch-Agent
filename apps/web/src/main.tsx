@@ -1,12 +1,19 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import dayjs from 'dayjs';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
 
 // Import the i18n initializer BEFORE App so i18next is configured and the
 // active language resolved before the first React render. `initReactI18next`
 // resolves synchronously, so no Suspense/loading flash on first paint.
 import './i18n';
 import './index.css';
+
+// `LL` / `LT` are *localized* formats that need this plugin; without it
+// `dayjs(x).format('LL')` prints the literal string "LL" (watchlist added-at,
+// dashboard missing sessions). Extending once at entry, before any render.
+dayjs.extend(localizedFormat);
 
 import App from './App';
 import LoginPage from '@/pages/LoginPage';

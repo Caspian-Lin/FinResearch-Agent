@@ -15,13 +15,15 @@
  * is shown verbatim (a short backend message). This page only *displays*; the
  * worker does all computation (FRA-57).
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Card, Col, Empty, Row, Spin, Statistic, Tabs, Typography, message } from 'antd';
 
 import { enqueueFactorSensitivity, enqueueQuantileBacktest, getFactorIC, getFactorJob } from '@/api/factors';
 import { ApiError } from '@/api/client';
+import { fetchQuality } from '@/api/quality';
 import { useWatchlists } from '@/hooks/useWatchlists';
+import { PreflightSyncModal, type MissingAsset } from '@/components/backtest/PreflightSyncModal';
 import { FactorChart } from '@/components/factor/FactorChart';
 import { FactorConfigForm } from '@/components/factor/FactorConfigForm';
 import { factorTypeOf, type FactorFormValues } from '@/components/factor/factorMeta';
@@ -40,6 +42,8 @@ const POLL_INTERVAL_MS = 1500;
 const MAX_POLLS = 120;
 /** Forward-return horizon (days) for the IC evaluation. */
 const HORIZON = 5;
+/** Coverage below which the preflight flags an asset as needing sync (FRA-43). */
+const COVERAGE_THRESHOLD = 0.9;
 
 type Tab = 'ic' | 'quantile' | 'sensitivity';
 type Phase = 'idle' | 'polling' | 'success' | 'failed' | 'timeout';
@@ -67,6 +71,18 @@ function FactorResearchPage() {
   const [sResult, setSResult] = useState<SensitivitySummary | null>(null);
   const [sError, setSError] = useState<string | null>(null);
 
+  // FRA-43 preflight: assets flagged as needing sync before compute runs.
+  const [preflightMissing, setPreflightMissing] = useState<MissingAsset[]>([]);
+  const [preflightWindow, setPreflightWindow] = useState({ source: '', start: '', end: '' });
+  // universe arrives as asset UUIDs; the sync modal shows symbols, so map them.
+  const symbolByAsset = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const wl of watchlists) {
+      for (const it of wl.items) m[it.asset_id] = it.symbol;
+    }
+    return m;
+  }, [watchlists]);
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -93,13 +109,17 @@ function FactorResearchPage() {
         });
         setIcResult(res.result);
       } catch (err) {
-        if (err instanceof ApiError) setIcError(err.code);
+        // Surface the backend's specific reason (e.g. "insufficient price data:
+        // … field='adjusted'") instead of the generic "validation" label. A 422
+        // here is almost always a data/shape issue the user can act on (sync
+        // data, switch price field, widen the window) — not a malformed field.
+        if (err instanceof ApiError) setIcError(err.detail || t('errors:validation'));
       } finally {
         setIcLoading(false);
         setSubmitting(false);
       }
     },
-    [],
+    [t],
   );
 
   // --- async job poller (quantile / sensitivity share one timer) --------
@@ -107,6 +127,7 @@ function FactorResearchPage() {
     (jobId: string, kind: 'quantile' | 'sweep') => {
       let polls = 0;
       const setPhase = kind === 'quantile' ? setQPhase : setSPhase;
+      const setError = kind === 'quantile' ? setQError : setSError;
       const scheduleNext = () => {
         if (timerRef.current !== null) return; // already stopped
         timerRef.current = setTimeout(() => {
@@ -129,6 +150,9 @@ function FactorResearchPage() {
               }
             } else if (job.status === 'failed') {
               setPhase('failed');
+              // Show the worker's specific failure reason (e.g. insufficient
+              // price data) rather than just "run failed".
+              setError(job.error_message || t('factor:run.failed'));
               clearTimer();
               messageApi.error(t('factor:run.failed'));
             } else if (polls >= MAX_POLLS) {
@@ -173,7 +197,7 @@ function FactorResearchPage() {
         messageApi.info(t('factor:run.triggered'));
         startPolling(enq.run_id, 'quantile');
       } catch (err) {
-        if (err instanceof ApiError) setQError(err.code);
+        if (err instanceof ApiError) setQError(err.detail || t('errors:validation'));
         setQPhase('idle');
       } finally {
         setSubmitting(false);
@@ -209,7 +233,7 @@ function FactorResearchPage() {
         messageApi.info(t('factor:run.triggered'));
         startPolling(enq.run_id, 'sweep');
       } catch (err) {
-        if (err instanceof ApiError) setSError(err.code);
+        if (err instanceof ApiError) setSError(err.detail || t('errors:validation'));
         setSPhase('idle');
       } finally {
         setSubmitting(false);
@@ -219,17 +243,59 @@ function FactorResearchPage() {
   );
 
   const handleSubmit = useCallback(
-    (v: FactorFormValues) => {
+    async (v: FactorFormValues) => {
       if (v.universe.length === 0) {
         messageApi.error(t('errors:validation'));
         return;
       }
+      // IC is a cross-sectional rank correlation and needs ≥ 2 assets (the
+      // backend uses Query(min_length=2)). Fail fast with a clear message
+      // instead of letting the API reject it as a generic 422.
+      if (activeTab === 'ic' && v.universe.length < 2) {
+        messageApi.error(t('factor:ic.minUniverse'));
+        return;
+      }
       setSubmitting(true);
-      if (activeTab === 'ic') void runIC(v);
-      else if (activeTab === 'quantile') void runQuantile(v);
-      else void runSensitivity(v);
+      try {
+        // FRA-43 preflight: verify universe coverage before computing. Any asset
+        // below the threshold (incl. no data at all) opens the sync modal rather
+        // than hitting the API — otherwise load_prices raises and the 422 surfaces
+        // as the misleading "Some fields are invalid".
+        const missing: MissingAsset[] = [];
+        await Promise.all(
+          v.universe.map(async (id) => {
+            const symbol = symbolByAsset[id] ?? id.slice(0, 8);
+            try {
+              const q = await fetchQuality({
+                asset_id: id,
+                source: v.source,
+                start: v.start,
+                end: v.end,
+              });
+              if (q.coverage < COVERAGE_THRESHOLD) {
+                missing.push({ assetId: id, symbol, coverage: q.coverage });
+              }
+            } catch {
+              // quality unavailable (404/422) → treat as no data.
+              missing.push({ assetId: id, symbol, coverage: 0 });
+            }
+          }),
+        );
+        if (missing.length > 0) {
+          setPreflightMissing(missing);
+          setPreflightWindow({ source: v.source, start: v.start, end: v.end });
+          return;
+        }
+        if (activeTab === 'ic') void runIC(v);
+        else if (activeTab === 'quantile') void runQuantile(v);
+        else void runSensitivity(v);
+      } catch (err) {
+        if (err instanceof ApiError) messageApi.error(t(`errors:${err.code}`));
+      } finally {
+        setSubmitting(false);
+      }
     },
-    [activeTab, runIC, runQuantile, runSensitivity, messageApi, t],
+    [activeTab, runIC, runQuantile, runSensitivity, messageApi, t, symbolByAsset],
   );
 
   return (
@@ -257,7 +323,7 @@ function FactorResearchPage() {
           <FactorConfigForm
             watchlists={watchlists}
             submitting={submitting}
-            onSubmit={handleSubmit}
+            onSubmit={(v) => void handleSubmit(v)}
           />
         </Card>
 
@@ -272,7 +338,7 @@ function FactorResearchPage() {
                 <Row gutter={[16, 16]}>
                   {icError && (
                     <Col span={24}>
-                      <Alert type="error" showIcon message={t(`errors:${icError}`)} />
+                      <Alert type="error" showIcon message={icError} />
                     </Col>
                   )}
                   {icLoading && (
@@ -318,7 +384,7 @@ function FactorResearchPage() {
                 <Row gutter={[16, 16]}>
                   {qError && (
                     <Col span={24}>
-                      <Alert type="error" showIcon message={t(`errors:${qError}`)} />
+                      <Alert type="error" showIcon message={qError} />
                     </Col>
                   )}
                   {qPhase === 'timeout' && (
@@ -375,7 +441,7 @@ function FactorResearchPage() {
                 <Row gutter={[16, 16]}>
                   {sError && (
                     <Col span={24}>
-                      <Alert type="error" showIcon message={t(`errors:${sError}`)} />
+                      <Alert type="error" showIcon message={sError} />
                     </Col>
                   )}
                   {sPhase === 'timeout' && (
@@ -435,6 +501,16 @@ function FactorResearchPage() {
               ),
             },
           ]}
+        />
+
+        <PreflightSyncModal
+          open={preflightMissing.length > 0}
+          missing={preflightMissing}
+          source={preflightWindow.source}
+          start={preflightWindow.start}
+          end={preflightWindow.end}
+          ns="factor"
+          onCancel={() => setPreflightMissing([])}
         />
       </div>
     </SiderLayout>
