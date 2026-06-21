@@ -19,21 +19,25 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from rq import Queue
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.deps import get_current_user
 from app.models.asset import Asset
+from app.models.backtest import BacktestRun
 from app.models.factor import FactorValue
 from app.models.user import User
 from app.schemas.factor import (
     FactorComputeRequest,
     FactorComputeResponse,
+    FactorJobEnqueueResponse,
+    FactorJobStatusResponse,
     FactorValueRead,
     FactorValuesResponse,
     ICResponse,
@@ -57,11 +61,13 @@ from app.services.backtest.types import BacktestConfig, PriceField, RebalanceFre
 from app.services.factors.evaluation import evaluate_ic, forward_returns
 from app.services.factors.quantile import QuantileBacktester
 from app.services.factors.service import FACTOR_REGISTRY, compute_and_store_factors
+from app.services.sync import get_backtest_queue
 
 router = APIRouter(prefix="/factors", tags=["factors"])
 
 DBSession = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+BacktestQueue = Annotated[Queue, Depends(get_backtest_queue)]
 
 #: 因子白名单(已注册的因子名,如 momentum_21 / rsi_14)。
 ALLOWED_FACTORS = frozenset(FACTOR_REGISTRY)
@@ -70,6 +76,15 @@ ALLOWED_FACTOR_TYPES = frozenset({"momentum", "rsi", "volatility"})
 ALLOWED_REBALANCE = frozenset({"daily", "weekly", "monthly"})
 DEFAULT_LIMIT = 1000
 MAX_LIMIT = 10000
+#: factor worker job RQ 调度参数(同 backtest,复用 backtest 队列)。
+FACTOR_JOB_TIMEOUT = 600
+FACTOR_JOB_RESULT_TTL = 86400
+#: 异步 job 的 run_kind → worker task dotted path(RQ 按路径解析,免 import worker)。
+FACTOR_JOB_TASKS = {
+    "factor_compute": "worker.tasks.factor.run_factor_compute_job",
+    "factor_quantile": "worker.tasks.factor.run_factor_quantile_job",
+    "factor_sweep": "worker.tasks.factor.run_factor_sweep_job",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -416,4 +431,221 @@ def factor_sensitivity(
             "rebalances": payload.rebalances,
             "cost_bands": payload.cost_bands,
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# FRA-57: 异步 worker 入队 + 状态轮询
+# ---------------------------------------------------------------------------
+
+
+def _enqueue_factor_job(
+    db: Session,
+    current_user: User,
+    queue: Queue,
+    *,
+    run_kind: str,
+    name: str | None,
+    config_json: dict[str, Any],
+    start: date,
+    end: date,
+    price_field: str,
+) -> BacktestRun:
+    """建 ``BacktestRun``(pending, run_kind, strategy_type='factor')+ 入队 worker。
+
+    仿 backtest API ``create_backtest``:校验已在调用方完成(API 层快速 422,不浪费
+    worker slot);此处只落 run + 调度。返回新建的 run(pending),worker 执行后改状态。
+    """
+    run = BacktestRun(
+        user_id=current_user.id,
+        name=(name or f"{run_kind}-{uuid.uuid4().hex[:8]}")[:255],
+        strategy_type="factor",
+        config_json=config_json,
+        benchmark_asset_id=None,
+        start_date=start,
+        end_date=end,
+        price_field=price_field,
+        status="pending",
+        run_kind=run_kind,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    # 字符串路径,RQ 在 worker 侧解析(免 import worker,同 backtest 调度)。
+    queue.enqueue(
+        FACTOR_JOB_TASKS[run_kind],
+        str(run.id),
+        job_timeout=FACTOR_JOB_TIMEOUT,
+        result_ttl=FACTOR_JOB_RESULT_TTL,
+    )
+    return run
+
+
+@router.post(
+    "/compute-async",
+    response_model=FactorJobEnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enqueue a batch factor computation job",
+)
+def compute_factors_async(
+    payload: FactorComputeRequest, db: DBSession, current_user: CurrentUser, queue: BacktestQueue
+) -> FactorJobEnqueueResponse:
+    """校验 + 建 ``factor_compute`` run + 入队(202);``GET /factors/jobs/{id}`` 轮询结果。"""
+    _require_start_le_end(payload.start, payload.end)
+    pf = _price_field_or_422(payload.price_field)
+    bad = [n for n in payload.factor_names if n not in ALLOWED_FACTORS]
+    if bad:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown factor_names {bad}; allowed: {sorted(ALLOWED_FACTORS)}",
+        )
+    _validate_universe(db, payload.universe)
+    cfg = {
+        "universe": [str(a) for a in payload.universe],
+        "source": payload.source,
+        "start": payload.start.isoformat(),
+        "end": payload.end.isoformat(),
+        "price_field": payload.price_field,
+        "factor_names": payload.factor_names,
+    }
+    run = _enqueue_factor_job(
+        db,
+        current_user,
+        queue,
+        run_kind="factor_compute",
+        name=payload.name,
+        config_json=cfg,
+        start=payload.start,
+        end=payload.end,
+        price_field=pf.value,
+    )
+    return FactorJobEnqueueResponse(run_id=run.id, run_kind=run.run_kind)
+
+
+@router.post(
+    "/quantile-backtest-async",
+    response_model=FactorJobEnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enqueue a stratified (quantile) backtest job",
+)
+def quantile_backtest_async(
+    payload: QuantileBacktestRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+    queue: BacktestQueue,
+) -> FactorJobEnqueueResponse:
+    """校验 + 建 ``factor_quantile`` run + 入队(202)。"""
+    if payload.factor_name not in ALLOWED_FACTORS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown factor {payload.factor_name!r}; allowed: {sorted(ALLOWED_FACTORS)}",
+        )
+    _require_start_le_end(payload.start, payload.end)
+    pf = _price_field_or_422(payload.price_field)
+    _validate_universe(db, payload.universe)
+    cfg = {
+        "universe": [str(a) for a in payload.universe],
+        "source": payload.source,
+        "start": payload.start.isoformat(),
+        "end": payload.end.isoformat(),
+        "price_field": payload.price_field,
+        "factor_name": payload.factor_name,
+        "n_quantiles": payload.n_quantiles,
+    }
+    run = _enqueue_factor_job(
+        db,
+        current_user,
+        queue,
+        run_kind="factor_quantile",
+        name=payload.name,
+        config_json=cfg,
+        start=payload.start,
+        end=payload.end,
+        price_field=pf.value,
+    )
+    return FactorJobEnqueueResponse(run_id=run.id, run_kind=run.run_kind)
+
+
+@router.post(
+    "/sensitivity-async",
+    response_model=FactorJobEnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enqueue a factor sensitivity sweep job",
+)
+def factor_sensitivity_async(
+    payload: SensitivityRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+    queue: BacktestQueue,
+) -> FactorJobEnqueueResponse:
+    """校验 + 建 ``factor_sweep`` run + 入队(202)。"""
+    _require_start_le_end(payload.start, payload.end)
+    pf = _price_field_or_422(payload.price_field)
+    bad_factors = [f for f in payload.factors if f not in ALLOWED_FACTOR_TYPES]
+    if bad_factors:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown factor types {bad_factors}; allowed: {sorted(ALLOWED_FACTOR_TYPES)}",
+        )
+    bad_rb = [r for r in payload.rebalances if r not in ALLOWED_REBALANCE]
+    if bad_rb:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown rebalances {bad_rb}; allowed: {sorted(ALLOWED_REBALANCE)}",
+        )
+    _validate_universe(db, payload.universe)
+    cfg = {
+        "universe": [str(a) for a in payload.universe],
+        "source": payload.source,
+        "start": payload.start.isoformat(),
+        "end": payload.end.isoformat(),
+        "price_field": payload.price_field,
+        "factors": payload.factors,
+        "windows": payload.windows,
+        "top_ks": payload.top_ks,
+        "quantiles": payload.quantiles,
+        "n_quantiles": payload.n_quantiles,
+        "rebalances": payload.rebalances,
+        "cost_bands": payload.cost_bands,
+    }
+    run = _enqueue_factor_job(
+        db,
+        current_user,
+        queue,
+        run_kind="factor_sweep",
+        name=payload.name,
+        config_json=cfg,
+        start=payload.start,
+        end=payload.end,
+        price_field=pf.value,
+    )
+    return FactorJobEnqueueResponse(run_id=run.id, run_kind=run.run_kind)
+
+
+@router.get(
+    "/jobs/{run_id}",
+    response_model=FactorJobStatusResponse,
+    summary="Poll a factor worker job's status + result",
+)
+def get_factor_job(
+    run_id: uuid.UUID, db: DBSession, current_user: CurrentUser
+) -> FactorJobStatusResponse:
+    """读 factor worker job:status + error_message + result_json(轮询用)。
+
+    仅 factor worker 三类 run_kind 可见;他人 run / 非 factor run 都 404(无存在泄露,
+    同 backtest ``_get_owned_run`` 约定)。
+    """
+    run = db.scalar(
+        select(BacktestRun).where(BacktestRun.id == run_id, BacktestRun.user_id == current_user.id)
+    )
+    if run is None or run.run_kind not in FACTOR_JOB_TASKS:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="factor job not found.")
+    return FactorJobStatusResponse(
+        run_id=run.id,
+        name=run.name,
+        run_kind=run.run_kind,
+        status=run.status,
+        error_message=run.error_message,
+        result=run.result_json,
+        config_snapshot=dict(run.config_json),
     )

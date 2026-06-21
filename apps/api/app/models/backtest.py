@@ -41,7 +41,18 @@ SERIES_KINDS = ("strategy", "benchmark")
 #: strategy parameter/cost sweep; ``factor_sensitivity`` (FRA-54) marks each child run
 #: produced by a *factor* parameter/cost sweep (factor window × top_k/quantile ×
 #: rebalance × cost). Both sweep kinds are queryable apart from regular backtests.
-RUN_KINDS = ("backtest", "sensitivity", "factor_sensitivity")
+#: FRA-57 adds the three *factor worker* kinds — ``factor_compute`` (batch factor
+#: value computation), ``factor_quantile`` (stratified quantile backtest), and
+#: ``factor_sweep`` (factor sensitivity grid) — each one async-enqueued job whose
+#: structured result lands in ``result_json``; they share the run state machine.
+RUN_KINDS = (
+    "backtest",
+    "sensitivity",
+    "factor_sensitivity",
+    "factor_compute",
+    "factor_quantile",
+    "factor_sweep",
+)
 
 
 class BacktestRun(Base):
@@ -81,6 +92,11 @@ class BacktestRun(Base):
     run_kind: Mapped[str] = mapped_column(
         String(32), nullable=False, default="backtest", server_default="backtest"
     )
+    # 结构化结果快照(FRA-57):factor worker 三类异步任务(factor_compute /
+    # factor_quantile / factor_sweep)的成功结果序列化进此列(行数 / 分层净值序列 /
+    # 敏感性 summary)。普通回测 run 不写(NULL)。nullable —— 既有 run 与 pending/
+    # running 行不受影响;success 后由 worker 填。
+    result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
