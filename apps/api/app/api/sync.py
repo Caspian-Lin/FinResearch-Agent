@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.asset import Asset
 from app.schemas.sync import SyncEnqueueResponse, SyncJobStatus, SyncRequest
+from app.services.datasources import SUPPORTED_SOURCES
 from app.services.sync import (
     get_data_queue,
     map_rq_status,
@@ -32,7 +33,7 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 DBSession = Annotated[Session, Depends(get_db)]
 DataQueue = Annotated[Queue, Depends(get_data_queue)]
 
-ALLOWED_SOURCES = ("yfinance",)
+ALLOWED_SOURCES = SUPPORTED_SOURCES  # derived from the data-source registry (FRA-23)
 MAX_SYNC_WINDOW_DAYS = 365 * 5  # ~5 years per request
 SYNC_JOB_TIMEOUT = 600  # seconds
 SYNC_RESULT_TTL = 86400  # keep job result 24h for GET polling

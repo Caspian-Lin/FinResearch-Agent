@@ -22,12 +22,10 @@ from typing import Any
 
 from app.db.session import SessionLocal
 from app.models.asset import Asset
+from app.services.datasources import SUPPORTED_SOURCES, get_data_source
 from app.services.ohlcv import upsert_ohlcv_bars
-from app.services.yfinance import fetch_ohlcv
 
 logger = logging.getLogger(__name__)
-
-SUPPORTED_SOURCES = ("yfinance",)
 
 
 def sync_ohlcv(asset_id: str, start: str, end: str, source: str = "yfinance") -> dict[str, Any]:
@@ -59,7 +57,9 @@ def sync_ohlcv(asset_id: str, start: str, end: str, source: str = "yfinance") ->
         asset = db.get(Asset, aid)
         if asset is None:
             raise ValueError(f"asset {aid} not found")
-        bars = fetch_ohlcv(asset.symbol, start_d, end_d)  # retry lives inside fetch
+        bars = get_data_source(source).fetch_ohlcv(
+            asset.symbol, start_d, end_d
+        )  # retry inside adapter
         inserted, updated = upsert_ohlcv_bars(db, aid, source, bars)
         db.commit()
         total_bars = len(bars)
