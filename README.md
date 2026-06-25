@@ -28,6 +28,7 @@ The UI ships in **English** and **简体中文**; switch at any time from the he
 - [Disclaimer](#disclaimer)
 - [Week 1 Progress](#week-1-progress)
 - [Week 2 Progress](#week-2-progress)
+- [Week 3 Progress](#week-3-progress)
 - [Roadmap / Next Steps](#roadmap--next-steps)
 
 ---
@@ -260,6 +261,20 @@ See [`docs/week2-progress.md`](./docs/week2-progress.md) and
 anti-cheat audit, train→forward validation boundary, cost assumptions, and known
 limitations.
 
+### Week 3 Factor Research Demo
+
+After syncing `NVDA`, `AMD`, and `QQQ`, open the Factor Research page and run the
+same explicit window, for example `2024-01-02` to `2024-12-31`, with adjusted
+prices. Start with `momentum_63`: render IC statistics, then run the quintile
+backtest and sensitivity heatmap. Repeat the IC view with `rsi_14`. The factor
+flow records its universe, date window, source, factor, horizon / quantile /
+sweep grid, price field, and cost assumptions in the API response or async
+`config_json`.
+
+See [`docs/week3-progress.md`](./docs/week3-progress.md) and
+[`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md)
+for the reproducible steps, anti-cheat audit, and limitations.
+
 ## Data Sources, Adjusted Prices & Quality Checks
 
 Be explicit about what the data is and isn't:
@@ -334,6 +349,18 @@ look-ahead protection, survivorship-bias limitations, train→forward validation
 cost model assumptions, and reproducibility requirements. Demo steps and
 acceptance notes live in [`docs/week2-progress.md`](./docs/week2-progress.md).
 
+## Week 3 Progress
+
+Week 3 — **Factor Research & Parameter Sensitivity** — is implemented as a
+reproducible factor workflow: factor computation and storage, IC statistics,
+stratified quantile backtests, factor / window / cost sensitivity, async worker
+jobs, and a Factor Research UI with charts and heatmap.
+
+The methodology and anti-cheat audit are documented in
+[`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
+Demo steps, acceptance notes, Week 3 deliverable mapping, limitations, and next
+week scope live in [`docs/week3-progress.md`](./docs/week3-progress.md).
+
 ## Roadmap / Next Steps
 
 - **Week 1** ✅ Data foundation & dashboard skeleton
@@ -350,7 +377,7 @@ acceptance notes live in [`docs/week2-progress.md`](./docs/week2-progress.md).
 
 Design docs in [`docs/`](./docs/): `architecture.md`, `database-schema.md`,
 `agent-design.md`, `backtesting-methodology.md`, `factor-research-methodology.md`,
-`week1-progress.md`, `week2-progress.md`.
+`week1-progress.md`, `week2-progress.md`, `week3-progress.md`.
 
 ## License
 
