@@ -15,6 +15,7 @@ import type {
   FactorComputeResponse,
   FactorJobEnqueueResponse,
   FactorJobStatusResponse,
+  FactorRankingSnapshotResponse,
   ICResponse,
   QuantileBacktestRequest,
   QuantileBacktestResponse,
@@ -52,6 +53,26 @@ export async function getFactorIC(
   return data;
 }
 
+/** `GET /factors/{name}/snapshot` — one-date cross-sectional rank table. */
+export async function getFactorRankingSnapshot(
+  factorName: string,
+  params: {
+    universe: string[];
+    source: string;
+    start: string;
+    end: string;
+    snapshot_date?: string;
+    n_quantiles?: number;
+    price_field?: string;
+  },
+): Promise<FactorRankingSnapshotResponse> {
+  const { data } = await apiClient.get<FactorRankingSnapshotResponse>(
+    `/factors/${factorName}/snapshot`,
+    { params },
+  );
+  return data;
+}
+
 /** `POST /factors/quantile-backtest` — N-bucket stratified backtest (sync). */
 export async function quantileBacktest(
   payload: QuantileBacktestRequest,
@@ -64,9 +85,7 @@ export async function quantileBacktest(
 }
 
 /** `POST /factors/sensitivity` — factor parameter/cost sensitivity sweep (sync). */
-export async function factorSensitivity(
-  payload: SensitivityRequest,
-): Promise<SensitivityResponse> {
+export async function factorSensitivity(payload: SensitivityRequest): Promise<SensitivityResponse> {
   const { data } = await apiClient.post<SensitivityResponse>('/factors/sensitivity', payload);
   return data;
 }

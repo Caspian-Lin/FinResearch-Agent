@@ -74,6 +74,30 @@ class FactorValueRead(BaseModel):
     source: str
 
 
+class FactorRankingSnapshotItemRead(BaseModel):
+    """One asset's cross-sectional factor snapshot on a decision date (FRA-76)."""
+
+    asset_id: str
+    symbol: str
+    factor_value: float
+    rank_pct: float
+    z_score: float | None
+    quantile_bucket: int
+
+
+class FactorRankingSnapshotResponse(BaseModel):
+    """``GET /factors/{name}/snapshot`` response for the ranking table."""
+
+    factor_name: str
+    source: str
+    snapshot_time: datetime | None
+    requested_date: date | None
+    n_quantiles: int
+    items: list[FactorRankingSnapshotItemRead]
+    total: int
+    config_snapshot: dict[str, Any]
+
+
 class ParamImpactRead(BaseModel):
     """sensitivity 单维度影响(FRA-54 ``ParamImpact``),float 序列化。"""
 

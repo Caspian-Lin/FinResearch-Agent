@@ -370,6 +370,28 @@ export interface QuantileResult {
   monotonicity: number;
 }
 
+/** One asset row in a cross-sectional factor ranking snapshot (FRA-76). */
+export interface FactorRankingSnapshotItem {
+  asset_id: string;
+  symbol: string;
+  factor_value: number;
+  rank_pct: number;
+  z_score: number | null;
+  quantile_bucket: number;
+}
+
+/** Ranking snapshot response for one decision date. */
+export interface FactorRankingSnapshotResponse {
+  factor_name: string;
+  source: string;
+  snapshot_time: string | null;
+  requested_date: string | null;
+  n_quantiles: number;
+  items: FactorRankingSnapshotItem[];
+  total: number;
+  config_snapshot: Record<string, unknown>;
+}
+
 /** One dimension's sensitivity impact (FRA-54 `ParamImpact`). */
 export interface ParamImpact {
   param: string;

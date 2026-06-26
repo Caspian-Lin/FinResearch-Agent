@@ -19,6 +19,7 @@ import {
   factorSensitivity,
   getFactorIC,
   getFactorJob,
+  getFactorRankingSnapshot,
   quantileBacktest,
 } from '@/api/factors';
 
@@ -72,6 +73,29 @@ describe('factor api client', () => {
     mockPost.mockResolvedValueOnce({ data: {} });
     await quantileBacktest({ ...baseReq, factor_name: 'momentum_21', n_quantiles: 5 });
     expect(mockPost).toHaveBeenCalledWith('/factors/quantile-backtest', expect.any(Object));
+  });
+
+  it('getFactorRankingSnapshot GETs /factors/{name}/snapshot with query params', async () => {
+    mockGet.mockResolvedValueOnce({ data: { factor_name: 'momentum_21', items: [] } });
+    const res = await getFactorRankingSnapshot('momentum_21', {
+      universe: ['a-1', 'a-2'],
+      source: 'yfinance',
+      start: '2023-01-02',
+      end: '2023-03-01',
+      snapshot_date: '2023-02-15',
+      n_quantiles: 5,
+    });
+    expect(mockGet).toHaveBeenCalledWith('/factors/momentum_21/snapshot', {
+      params: {
+        universe: ['a-1', 'a-2'],
+        source: 'yfinance',
+        start: '2023-01-02',
+        end: '2023-03-01',
+        snapshot_date: '2023-02-15',
+        n_quantiles: 5,
+      },
+    });
+    expect(res.factor_name).toBe('momentum_21');
   });
 
   it('factorSensitivity POSTs /factors/sensitivity', async () => {

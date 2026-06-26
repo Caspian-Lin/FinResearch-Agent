@@ -180,3 +180,26 @@ export interface QuantileResult {
   /** 层平均收益随层序的单调性(如 Spearman 相关) */
   monotonicity: number;
 }
+
+/** 单个资产在某日横截面因子排名快照中的行(FRA-76) */
+export interface FactorRankingSnapshotItem {
+  asset_id: string;
+  symbol: string;
+  factor_value: number;
+  rank_pct: number;
+  z_score: number | null;
+  quantile_bucket: number;
+}
+
+/** 某一决策日的横截面因子排名快照(FRA-76) */
+export interface FactorRankingSnapshot {
+  factor_name: string;
+  source: string;
+  /** ISO 8601,UTC 午夜;无有效横截面时为 null */
+  snapshot_time: string | null;
+  requested_date: string | null;
+  n_quantiles: number;
+  items: FactorRankingSnapshotItem[];
+  total: number;
+  config_snapshot: Record<string, unknown>;
+}

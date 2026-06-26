@@ -38,6 +38,8 @@ from app.schemas.factor import (
     FactorComputeResponse,
     FactorJobEnqueueResponse,
     FactorJobStatusResponse,
+    FactorRankingSnapshotItemRead,
+    FactorRankingSnapshotResponse,
     FactorValueRead,
     FactorValuesResponse,
     ICResponse,
@@ -60,6 +62,7 @@ from app.services.backtest.sensitivity import (
 from app.services.backtest.types import BacktestConfig, PriceField, RebalanceFreq
 from app.services.factors.evaluation import evaluate_ic, forward_returns
 from app.services.factors.quantile import QuantileBacktester
+from app.services.factors.ranking import cross_sectional_rank, quantile_bucket, zscore
 from app.services.factors.service import FACTOR_REGISTRY, compute_and_store_factors
 from app.services.sync import get_backtest_queue
 
@@ -128,6 +131,11 @@ def _ts_points(series: pd.Series) -> list[TimeSeriesPointRead]:
         TimeSeriesPointRead(time=pd.Timestamp(t).to_pydatetime(), value=float(v))
         for t, v in clean.items()
     ]
+
+
+def _utc_midnight(d: date) -> datetime:
+    """A date as UTC midnight, matching price/factor frame indexes."""
+    return datetime(d.year, d.month, d.day, tzinfo=UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +247,117 @@ def list_factor_values(
 # ---------------------------------------------------------------------------
 # GET /factors/{factor_name}/ic
 # ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{factor_name}/snapshot",
+    response_model=FactorRankingSnapshotResponse,
+    summary="Get a cross-sectional factor ranking snapshot",
+)
+def get_factor_ranking_snapshot(
+    factor_name: str,
+    db: DBSession,
+    current_user: CurrentUser,
+    universe: Annotated[list[uuid.UUID], Query(min_length=1)],
+    source: str,
+    start: date,
+    end: date,
+    snapshot_date: date | None = None,
+    n_quantiles: Annotated[int, Query(ge=1)] = 5,
+    price_field: str = "adjusted",
+) -> FactorRankingSnapshotResponse:
+    """Raw value + rank pct + z-score + bucket for one factor cross-section.
+
+    ``snapshot_date`` is exact when provided: no forward/back fill. Without it,
+    the endpoint selects the latest date inside ``[start, end]`` with enough
+    non-NaN factor values to compute ranks and ``n_quantiles`` buckets.
+    """
+    _ = current_user
+    if factor_name not in ALLOWED_FACTORS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"unknown factor {factor_name!r}; allowed: {sorted(ALLOWED_FACTORS)}",
+        )
+    _require_start_le_end(start, end)
+    if snapshot_date is not None and not (start <= snapshot_date <= end):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="snapshot_date must be within [start, end]",
+        )
+    pf = _price_field_or_422(price_field)
+    _validate_universe(db, universe)
+
+    assets = list(db.scalars(select(Asset).where(Asset.id.in_(list(universe)))).all())
+    symbol_by_id = {str(asset.id): asset.symbol for asset in assets}
+
+    try:
+        prices = load_prices(db, universe, source, start, end, pf)
+        factor = FACTOR_REGISTRY[factor_name](prices)
+    except ValueError as e:
+        raise _insufficient(f"insufficient price data: {e}") from e
+
+    if snapshot_date is None:
+        valid_counts = factor.notna().sum(axis=1)
+        required = max(2, n_quantiles)
+        candidates = factor.index[valid_counts >= required]
+        snapshot_ts = pd.Timestamp(candidates[-1]).to_pydatetime() if len(candidates) else None
+    else:
+        requested_ts = pd.Timestamp(_utc_midnight(snapshot_date))
+        if requested_ts in factor.index:
+            row = factor.loc[requested_ts]
+            snapshot_ts = (
+                requested_ts.to_pydatetime()
+                if int(row.notna().sum()) >= max(2, n_quantiles)
+                else None
+            )
+        else:
+            snapshot_ts = None
+
+    items: list[FactorRankingSnapshotItemRead] = []
+    if snapshot_ts is not None:
+        selected = pd.Timestamp(snapshot_ts)
+        frame = factor.loc[[selected]]
+        ranks = cross_sectional_rank(frame).iloc[0]
+        zs = zscore(frame).iloc[0]
+        buckets = quantile_bucket(frame, n_quantiles=n_quantiles).iloc[0]
+        values = frame.iloc[0]
+        for asset_col, value in values.dropna().items():
+            bucket = buckets.get(asset_col)
+            rank_pct = ranks.get(asset_col)
+            if pd.isna(bucket) or pd.isna(rank_pct):
+                continue
+            z = zs.get(asset_col)
+            items.append(
+                FactorRankingSnapshotItemRead(
+                    asset_id=str(asset_col),
+                    symbol=symbol_by_id.get(str(asset_col), str(asset_col)),
+                    factor_value=float(value),
+                    rank_pct=float(rank_pct),
+                    z_score=None if pd.isna(z) else float(z),
+                    quantile_bucket=int(bucket),
+                )
+            )
+        items.sort(key=lambda item: item.rank_pct, reverse=True)
+
+    return FactorRankingSnapshotResponse(
+        factor_name=factor_name,
+        source=source,
+        snapshot_time=snapshot_ts,
+        requested_date=snapshot_date,
+        n_quantiles=n_quantiles,
+        items=items,
+        total=len(items),
+        config_snapshot={
+            "universe": [str(a) for a in universe],
+            "source": source,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "snapshot_date": snapshot_date.isoformat() if snapshot_date is not None else None,
+            "n_quantiles": n_quantiles,
+            "price_field": price_field,
+            "factor_name": factor_name,
+        },
+    )
 
 
 @router.get(
