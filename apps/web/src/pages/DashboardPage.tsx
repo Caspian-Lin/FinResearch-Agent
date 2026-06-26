@@ -63,9 +63,6 @@ import type { OhlcvRead, QualityReport, WatchlistItemRead } from '@/types/api';
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 
-/** The only data source currently supported by the backend. */
-const SOURCE_OPTIONS = [{ value: 'yfinance', label: 'yfinance' }];
-
 /** Tuple type for the RangePicker value (null when cleared). */
 type DateRange = [Dayjs, Dayjs];
 
@@ -151,6 +148,17 @@ function DashboardPage() {
   );
 
   const [source, setSource] = useState<string>('yfinance');
+  // Data sources supported by the backend (FRA-23): yfinance (overseas) +
+  // akshare/tushare (A-share). Labels are localized; the value is the source
+  // key sent to POST /sync.
+  const sourceOptions = useMemo(
+    () => [
+      { value: 'yfinance', label: t('dashboard:sources.yfinance') },
+      { value: 'akshare', label: t('dashboard:sources.akshare') },
+      { value: 'tushare', label: t('dashboard:sources.tushare') },
+    ],
+    [t],
+  );
   const [dateRange, setDateRange] = useState<DateRange>([dayjs().subtract(1, 'year'), dayjs()]);
   // Render-only options — never trigger a re-fetch, so they stay out of
   // `loadData`'s dependency list.
@@ -237,7 +245,7 @@ function DashboardPage() {
                   ariaLabel={t('dashboard:filters.source')}
                   value={source}
                   onChange={setSource}
-                  options={SOURCE_OPTIONS}
+                  options={sourceOptions}
                   width={160}
                 />
               </span>

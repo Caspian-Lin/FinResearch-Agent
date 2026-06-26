@@ -60,6 +60,13 @@ const dashboard = {
     chartType: '图表类型',
   },
 
+  // 数据源选项(FRA-23)。akshare/tushare 仅支持 A 股。
+  sources: {
+    yfinance: 'yfinance',
+    akshare: 'AkShare',
+    tushare: 'Tushare',
+  },
+
   priceChart: {
     title: '价格',
     field: {
