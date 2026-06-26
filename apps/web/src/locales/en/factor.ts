@@ -47,6 +47,7 @@ const factor = {
 
   tabs: {
     ic: 'IC',
+    ranking: 'Ranking',
     quantile: 'Quantile',
     sensitivity: 'Sensitivity',
   },
@@ -67,7 +68,8 @@ const factor = {
     n: 'Periods',
     positiveRate: 'Positive rate',
     noData: 'No IC series yet — run the IC analysis first.',
-    minUniverse: 'IC analysis needs at least 2 assets (cross-sectional ranking) — add more to the universe.',
+    minUniverse:
+      'IC analysis needs at least 2 assets (cross-sectional ranking) — add more to the universe.',
   },
 
   quantile: {
@@ -76,6 +78,23 @@ const factor = {
     spread: 'Top − Bottom spread',
     monotonicity: 'Monotonicity',
     noData: 'No quantile curves yet — run the quantile backtest first.',
+  },
+
+  ranking: {
+    title: 'Cross-sectional ranking snapshot',
+    snapshotDate: 'Date',
+    latestValid: 'Latest valid',
+    snapshotTime: 'Snapshot: {{date}}',
+    noData:
+      'No valid cross-section for this date/window — warmup or missing factor values are not filled.',
+    minUniverse: 'Ranking needs at least 2 assets — add more to the universe.',
+    columns: {
+      symbol: 'Symbol',
+      value: 'Factor value',
+      rank: 'Rank',
+      zScore: 'Z-score',
+      bucket: 'Bucket',
+    },
   },
 
   heatmap: {
@@ -97,7 +116,8 @@ const factor = {
     timeout: 'Timed out — please retry later.',
   },
 
-  sweepUnsupported: 'This factor does not support the sensitivity sweep (momentum / RSI / volatility only).',
+  sweepUnsupported:
+    'This factor does not support the sensitivity sweep (momentum / RSI / volatility only).',
 
   preflight: {
     title: 'Missing price data',

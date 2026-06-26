@@ -17,9 +17,9 @@ reproducibility tool, not a trading or investment-advice system.
 | IC evaluation | Spearman IC series, mean, ICIR, t-stat, p-value, positive rate, and sample count |
 | Quantile backtest | Equal-weight buckets, top-minus-bottom spread, and monotonicity score |
 | Sensitivity sweep | Factor x window x top-k / quantile x rebalance x cost grid with parameter-impact flags |
-| API | `/factors/compute`, `/factors/values`, `/factors/{name}/ic`, `/factors/quantile-backtest`, `/factors/sensitivity`, plus async worker endpoints |
+| API | `/factors/compute`, `/factors/values`, `/factors/{name}/snapshot`, `/factors/{name}/ic`, `/factors/quantile-backtest`, `/factors/sensitivity`, plus async worker endpoints |
 | Worker | RQ jobs for factor compute, quantile backtest, and sensitivity sweep with persisted `config_json` / `result_json` |
-| Frontend | Factor Research page with IC chart, summary cards, quantile curves, and sensitivity heatmap |
+| Frontend | Factor Research page with IC chart, summary cards, ranking snapshot table, quantile curves, and sensitivity heatmap |
 | Methodology | `docs/factor-research-methodology.md` with anti-cheat audit, limitations, and implementation evidence |
 
 ## Reproducible Demo
@@ -80,7 +80,7 @@ and `/factors/sensitivity` after authenticating. Asset UUIDs come from
 |---|---|
 | 1M / 3M / 6M momentum | `momentum_21`, `momentum_63`, `momentum_126` in `app/services/factors/momentum.py` |
 | RSI, MACD, volatility | `rsi_14`, `macd` pure output, registered persisted `macd_hist`, `volatility_20d`, `volatility_63d`; `macd_hist` is available in compute, IC, quantile, async worker, and the Factor Research selector |
-| Factor ranking | `app/services/factors/ranking.py` rank / z-score / winsorize / quantile bucket |
+| Factor ranking | `app/services/factors/ranking.py` rank / z-score / winsorize / quantile bucket, exposed through `/factors/{name}/snapshot` and the Factor Research Ranking tab |
 | Parameter sensitivity experiment | `factor_sensitivity_configs`, `run_sweep`, `summarize_sweep` |
 | Transaction-cost impact | Cost bands `0/5/10/25` bps in factor sensitivity; gross vs net metrics retained |
 | Factor performance report | Factor Research page: IC chart, IC summary cards, quantile curves, top-minus-bottom, heatmap |

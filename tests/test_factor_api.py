@@ -19,6 +19,10 @@ from app.db.session import SessionLocal, get_db
 from app.main import app
 from app.models.asset import Asset
 from app.models.ohlcv import Ohlcv
+from app.services.backtest.prices import load_prices
+from app.services.backtest.types import PriceField
+from app.services.factors.ranking import cross_sectional_rank, quantile_bucket, zscore
+from app.services.factors.service import FACTOR_REGISTRY
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -290,6 +294,100 @@ def test_ic_unknown_factor_422(
     r = client.get(
         "/factors/bogus/ic",
         params={"universe": [str(a) for a in asset_ids], "source": SRC, "start": start, "end": end},
+        headers=_auth(token),
+    )
+    assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /factors/{name}/snapshot
+# ---------------------------------------------------------------------------
+
+
+def test_ranking_snapshot_defaults_to_latest_valid_cross_section(
+    client: TestClient, db_session: Session, seeded: tuple[str, list[uuid.UUID], str, str]
+) -> None:
+    token, asset_ids, start, end = seeded
+    r = client.get(
+        "/factors/momentum_21/snapshot",
+        params={
+            "universe": [str(a) for a in asset_ids],
+            "source": SRC,
+            "start": start,
+            "end": end,
+            "n_quantiles": 5,
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["factor_name"] == "momentum_21"
+    assert data["snapshot_time"] is not None
+    assert data["requested_date"] is None
+    assert data["total"] == 5
+
+    prices = load_prices(
+        db_session,
+        asset_ids,
+        SRC,
+        date.fromisoformat(start),
+        date.fromisoformat(end),
+        PriceField.ADJUSTED,
+    )
+    factor = FACTOR_REGISTRY["momentum_21"](prices)
+    selected = pd.Timestamp(data["snapshot_time"])
+    frame = factor.loc[[selected]]
+    expected_rank = cross_sectional_rank(frame).iloc[0]
+    expected_z = zscore(frame).iloc[0]
+    expected_bucket = quantile_bucket(frame, n_quantiles=5).iloc[0]
+
+    by_asset = {item["asset_id"]: item for item in data["items"]}
+    for col, raw_value in frame.iloc[0].dropna().items():
+        item = by_asset[str(col)]
+        assert item["symbol"].startswith(PREFIX)
+        assert item["factor_value"] == pytest.approx(float(raw_value))
+        assert item["rank_pct"] == pytest.approx(float(expected_rank[col]))
+        assert item["z_score"] == pytest.approx(float(expected_z[col]))
+        assert item["quantile_bucket"] == int(expected_bucket[col])
+
+
+def test_ranking_snapshot_warmup_date_returns_empty_items(
+    client: TestClient, seeded: tuple[str, list[uuid.UUID], str, str]
+) -> None:
+    token, asset_ids, start, end = seeded
+    r = client.get(
+        "/factors/momentum_21/snapshot",
+        params={
+            "universe": [str(a) for a in asset_ids],
+            "source": SRC,
+            "start": start,
+            "end": end,
+            "snapshot_date": start,
+            "n_quantiles": 5,
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["requested_date"] == start
+    assert data["snapshot_time"] is None
+    assert data["items"] == []
+    assert data["total"] == 0
+
+
+def test_ranking_snapshot_requires_date_inside_window(
+    client: TestClient, seeded: tuple[str, list[uuid.UUID], str, str]
+) -> None:
+    token, asset_ids, start, end = seeded
+    r = client.get(
+        "/factors/momentum_21/snapshot",
+        params={
+            "universe": [str(a) for a in asset_ids],
+            "source": SRC,
+            "start": start,
+            "end": end,
+            "snapshot_date": "2022-12-30",
+        },
         headers=_auth(token),
     )
     assert r.status_code == 422

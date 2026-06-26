@@ -354,8 +354,9 @@ acceptance notes live in [`docs/week2-progress.md`](./docs/week2-progress.md).
 
 Week 3 — **Factor Research & Parameter Sensitivity** — is implemented as a
 reproducible factor workflow: factor computation and storage, IC statistics,
-stratified quantile backtests, factor / window / cost sensitivity, async worker
-jobs, and a Factor Research UI with charts and heatmap.
+cross-sectional ranking snapshots, stratified quantile backtests, factor /
+window / cost sensitivity, async worker jobs, and a Factor Research UI with
+charts, ranking table, and heatmap.
 
 The methodology and anti-cheat audit are documented in
 [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
@@ -369,9 +370,10 @@ week scope live in [`docs/week3-progress.md`](./docs/week3-progress.md).
   momentum; Sharpe / max drawdown / volatility / turnover vs benchmark)
 - **Week 3** ✅ Factor research & parameter sensitivity (momentum / reversal /
   MACD histogram / RSI / volatility factors; IC + ICIR / t-stat / p-value significance; stratified
-  quantile backtest with top−bottom spread; factor × window × cost sensitivity
-  grid; async worker jobs; factor research UI with IC chart / quantile curves /
-  heatmap). Methodology in [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
+  quantile backtest with top−bottom spread; ranking snapshot table; factor ×
+  window × cost sensitivity grid; async worker jobs; factor research UI with IC
+  chart / ranking table / quantile curves / heatmap). Methodology in
+  [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
 - **Week 4** — Financial text & sentiment factor
 - **Week 5** — LLM agent research workflow
 - **Week 6** — Report generation & application materials

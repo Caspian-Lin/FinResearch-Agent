@@ -44,6 +44,7 @@ const factor = {
 
   tabs: {
     ic: 'IC 分析',
+    ranking: '排名快照',
     quantile: '分层回测',
     sensitivity: '敏感性',
   },
@@ -73,6 +74,22 @@ const factor = {
     spread: '多空价差 (Top − Bottom)',
     monotonicity: '单调性',
     noData: '暂无分层曲线 —— 请先运行分层回测。',
+  },
+
+  ranking: {
+    title: '横截面排名快照',
+    snapshotDate: '日期',
+    latestValid: '最近有效截面',
+    snapshotTime: '快照日期: {{date}}',
+    noData: '该日期/窗口暂无有效横截面 —— 预热期或缺失因子值不会被填充。',
+    minUniverse: '排名快照需要至少 2 个标的,请在标的池中选择更多资产。',
+    columns: {
+      symbol: '标的',
+      value: '因子值',
+      rank: '排名',
+      zScore: 'Z-score',
+      bucket: '分层',
+    },
   },
 
   heatmap: {

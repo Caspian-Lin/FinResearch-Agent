@@ -4,6 +4,7 @@
  * One config form (universe via watchlist + factor + window) feeds three
  * research actions on tabs:
  *  - IC (sync `GET /factors/{name}/ic`): per-period IC bars + summary cards.
+ *  - Ranking (sync `GET /factors/{name}/snapshot`): raw values + rank/z-score/bucket.
  *  - Quantile (async `POST /quantile-backtest-async` → poll `GET /factors/jobs/{id}`):
  *    N bucket equity curves + top−bottom spread + monotonicity.
  *  - Sensitivity (async `POST /sensitivity-async` → poll): window × cost heatmap
@@ -17,9 +18,31 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Card, Col, Empty, Row, Spin, Statistic, Tabs, Typography, message } from 'antd';
+import {
+  Alert,
+  Card,
+  Col,
+  DatePicker,
+  Empty,
+  Row,
+  Space,
+  Spin,
+  Statistic,
+  Table,
+  Tabs,
+  Typography,
+  message,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 
-import { enqueueFactorSensitivity, enqueueQuantileBacktest, getFactorIC, getFactorJob } from '@/api/factors';
+import {
+  enqueueFactorSensitivity,
+  enqueueQuantileBacktest,
+  getFactorIC,
+  getFactorJob,
+  getFactorRankingSnapshot,
+} from '@/api/factors';
 import { ApiError } from '@/api/client';
 import { fetchQuality } from '@/api/quality';
 import { useWatchlists } from '@/hooks/useWatchlists';
@@ -32,7 +55,13 @@ import { buildHeatmapOption } from '@/components/factor/heatmapOption';
 import { buildICOption } from '@/components/factor/icChartOption';
 import { buildQuantileOption } from '@/components/factor/quantileChartOption';
 import { SiderLayout } from '@/components/layout/SiderLayout';
-import type { ICResult, QuantileResult, SensitivitySummary } from '@/types/api';
+import type {
+  FactorRankingSnapshotItem,
+  FactorRankingSnapshotResponse,
+  ICResult,
+  QuantileResult,
+  SensitivitySummary,
+} from '@/types/api';
 
 const { Title, Text } = Typography;
 
@@ -45,7 +74,7 @@ const HORIZON = 5;
 /** Coverage below which the preflight flags an asset as needing sync (FRA-43). */
 const COVERAGE_THRESHOLD = 0.9;
 
-type Tab = 'ic' | 'quantile' | 'sensitivity';
+type Tab = 'ic' | 'ranking' | 'quantile' | 'sensitivity';
 type Phase = 'idle' | 'polling' | 'success' | 'failed' | 'timeout';
 
 function FactorResearchPage() {
@@ -60,6 +89,12 @@ function FactorResearchPage() {
   const [icLoading, setIcLoading] = useState(false);
   const [icResult, setIcResult] = useState<ICResult | null>(null);
   const [icError, setIcError] = useState<string | null>(null);
+
+  // Ranking snapshot (sync GET).
+  const [rankingLoading, setRankingLoading] = useState(false);
+  const [rankingResult, setRankingResult] = useState<FactorRankingSnapshotResponse | null>(null);
+  const [rankingError, setRankingError] = useState<string | null>(null);
+  const [rankingDate, setRankingDate] = useState<string | null>(null);
 
   // Quantile (async job).
   const [qPhase, setQPhase] = useState<Phase>('idle');
@@ -206,6 +241,32 @@ function FactorResearchPage() {
     [startPolling, messageApi, t],
   );
 
+  const runRankingSnapshot = useCallback(
+    async (v: FactorFormValues) => {
+      setRankingLoading(true);
+      setRankingError(null);
+      setRankingResult(null);
+      try {
+        const res = await getFactorRankingSnapshot(v.factor, {
+          universe: v.universe,
+          source: v.source,
+          start: v.start,
+          end: v.end,
+          snapshot_date: rankingDate ?? undefined,
+          n_quantiles: Math.min(v.nQuantiles, v.universe.length),
+          price_field: v.priceField,
+        });
+        setRankingResult(res);
+      } catch (err) {
+        if (err instanceof ApiError) setRankingError(err.detail || t('errors:validation'));
+      } finally {
+        setRankingLoading(false);
+        setSubmitting(false);
+      }
+    },
+    [rankingDate, t],
+  );
+
   const runSensitivity = useCallback(
     async (v: FactorFormValues) => {
       const ftype = factorTypeOf(v.factor);
@@ -255,6 +316,10 @@ function FactorResearchPage() {
         messageApi.error(t('factor:ic.minUniverse'));
         return;
       }
+      if (activeTab === 'ranking' && v.universe.length < 2) {
+        messageApi.error(t('factor:ranking.minUniverse'));
+        return;
+      }
       setSubmitting(true);
       try {
         // FRA-43 preflight: verify universe coverage before computing. Any asset
@@ -287,6 +352,7 @@ function FactorResearchPage() {
           return;
         }
         if (activeTab === 'ic') void runIC(v);
+        else if (activeTab === 'ranking') void runRankingSnapshot(v);
         else if (activeTab === 'quantile') void runQuantile(v);
         else void runSensitivity(v);
       } catch (err) {
@@ -295,7 +361,60 @@ function FactorResearchPage() {
         setSubmitting(false);
       }
     },
-    [activeTab, runIC, runQuantile, runSensitivity, messageApi, t, symbolByAsset],
+    [
+      activeTab,
+      runIC,
+      runRankingSnapshot,
+      runQuantile,
+      runSensitivity,
+      messageApi,
+      t,
+      symbolByAsset,
+    ],
+  );
+
+  const rankingColumns: ColumnsType<FactorRankingSnapshotItem> = useMemo(
+    () => [
+      {
+        title: t('factor:ranking.columns.symbol'),
+        dataIndex: 'symbol',
+        key: 'symbol',
+        sorter: (a, b) => a.symbol.localeCompare(b.symbol),
+      },
+      {
+        title: t('factor:ranking.columns.value'),
+        dataIndex: 'factor_value',
+        key: 'factor_value',
+        align: 'right',
+        sorter: (a, b) => a.factor_value - b.factor_value,
+        render: (v: number) => v.toFixed(4),
+      },
+      {
+        title: t('factor:ranking.columns.rank'),
+        dataIndex: 'rank_pct',
+        key: 'rank_pct',
+        align: 'right',
+        defaultSortOrder: 'descend',
+        sorter: (a, b) => a.rank_pct - b.rank_pct,
+        render: (v: number) => `${(v * 100).toFixed(1)}%`,
+      },
+      {
+        title: t('factor:ranking.columns.zScore'),
+        dataIndex: 'z_score',
+        key: 'z_score',
+        align: 'right',
+        sorter: (a, b) => (a.z_score ?? 0) - (b.z_score ?? 0),
+        render: (v: number | null) => (v === null ? '—' : v.toFixed(3)),
+      },
+      {
+        title: t('factor:ranking.columns.bucket'),
+        dataIndex: 'quantile_bucket',
+        key: 'quantile_bucket',
+        align: 'right',
+        sorter: (a, b) => a.quantile_bucket - b.quantile_bucket,
+      },
+    ],
+    [t],
   );
 
   return (
@@ -374,6 +493,62 @@ function FactorResearchPage() {
                       <Empty description={t('factor:page.empty')} />
                     </Col>
                   )}
+                </Row>
+              ),
+            },
+            {
+              key: 'ranking',
+              label: t('factor:tabs.ranking'),
+              children: (
+                <Row gutter={[16, 16]}>
+                  <Col span={24}>
+                    <Card
+                      title={t('factor:ranking.title')}
+                      size="small"
+                      className="panel"
+                      extra={
+                        <Space>
+                          <Text type="secondary">{t('factor:ranking.snapshotDate')}</Text>
+                          <DatePicker
+                            allowClear
+                            value={rankingDate ? dayjs(rankingDate) : null}
+                            onChange={(d) => setRankingDate(d ? d.format('YYYY-MM-DD') : null)}
+                            placeholder={t('factor:ranking.latestValid')}
+                          />
+                        </Space>
+                      }
+                    >
+                      {rankingError && (
+                        <Alert
+                          type="error"
+                          showIcon
+                          message={rankingError}
+                          style={{ marginBottom: 16 }}
+                        />
+                      )}
+                      {rankingResult?.snapshot_time && (
+                        <Text type="secondary">
+                          {t('factor:ranking.snapshotTime', {
+                            date: rankingResult.snapshot_time.slice(0, 10),
+                          })}
+                        </Text>
+                      )}
+                      <Table<FactorRankingSnapshotItem>
+                        rowKey="asset_id"
+                        columns={rankingColumns}
+                        dataSource={rankingResult?.items ?? []}
+                        loading={rankingLoading}
+                        pagination={false}
+                        size="small"
+                        locale={{
+                          emptyText:
+                            rankingResult || rankingError
+                              ? t('factor:ranking.noData')
+                              : t('factor:page.empty'),
+                        }}
+                      />
+                    </Card>
+                  </Col>
                 </Row>
               ),
             },
