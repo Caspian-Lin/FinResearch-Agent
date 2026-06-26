@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     polygon_api_key: str = Field(default="", alias="POLYGON_API_KEY")
     alpha_vantage_api_key: str = Field(default="", alias="ALPHA_VANTAGE_API_KEY")
     fred_api_key: str = Field(default="", alias="FRED_API_KEY")
+    # Domestic A-share sources (FRA-23). AkShare is token-less; Tushare Pro
+    # requires a registered token from https://tushare.pro (points-tiered).
+    tushare_token: str = Field(default="", alias="TUSHARE_TOKEN")
 
     # Data quality
     quality_large_return_threshold: float = Field(
