@@ -5,7 +5,7 @@
  * research actions (IC / quantile / sensitivity), visualizations (IC series +
  * summary cards, quantile curves + spread, sensitivity heatmap), and async poll
  * status. Financial abbreviations (IC, ICIR, t-stat, p-value, Sharpe, bps) and
- * factor names (momentum_21, rsi_14) stay verbatim. Keep parity with
+ * factor names (momentum_21, macd_hist, rsi_14) stay verbatim. Keep parity with
  * `zh-CN/factor.ts`; do not overstate predictive power; not investment advice.
  */
 const factor = {
@@ -34,6 +34,7 @@ const factor = {
     momentum_126: 'Momentum 126d',
     reversal_5: 'Reversal 5d',
     reversal_21: 'Reversal 21d',
+    macd_hist: 'MACD histogram',
     rsi_14: 'RSI 14',
     volatility_20d: 'Volatility 20d',
     volatility_63d: 'Volatility 63d',

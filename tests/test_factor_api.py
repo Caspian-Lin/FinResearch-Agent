@@ -138,13 +138,13 @@ def test_compute_then_values_roundtrip(
         "start": start,
         "end": end,
         "price_field": "adjusted",
-        "factor_names": ["momentum_21", "rsi_14"],
+        "factor_names": ["momentum_21", "rsi_14", "macd_hist"],
     }
     r = client.post("/factors/compute", json=body, headers=_auth(token))
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["rows_written"] > 0
-    assert set(data["factor_names"]) == {"momentum_21", "rsi_14"}
+    assert set(data["factor_names"]) == {"momentum_21", "rsi_14", "macd_hist"}
     assert data["config_snapshot"]["price_field"] == "adjusted"
 
     # 读回 momentum_21 值。
@@ -262,6 +262,27 @@ def test_ic_happy(client: TestClient, seeded: tuple[str, list[uuid.UUID], str, s
     assert "horizon" in data["config_snapshot"]
 
 
+def test_ic_macd_hist_happy(
+    client: TestClient, seeded: tuple[str, list[uuid.UUID], str, str]
+) -> None:
+    token, asset_ids, start, end = seeded
+    r = client.get(
+        "/factors/macd_hist/ic",
+        params={
+            "universe": [str(a) for a in asset_ids],
+            "source": SRC,
+            "start": start,
+            "end": end,
+            "horizon": 5,
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["factor_name"] == "macd_hist"
+    assert data["result"]["summary"]["n"] > 0
+
+
 def test_ic_unknown_factor_422(
     client: TestClient, seeded: tuple[str, list[uuid.UUID], str, str]
 ) -> None:
@@ -302,6 +323,28 @@ def test_quantile_backtest_happy(
     assert isinstance(result["top_minus_bottom"], list)
     assert isinstance(result["monotonicity"], float)
     assert data["config_snapshot"]["n_quantiles"] == 5
+
+
+def test_quantile_backtest_macd_hist_happy(
+    client: TestClient, seeded: tuple[str, list[uuid.UUID], str, str]
+) -> None:
+    token, asset_ids, start, end = seeded
+    r = client.post(
+        "/factors/quantile-backtest",
+        json={
+            "universe": [str(a) for a in asset_ids],
+            "source": SRC,
+            "start": start,
+            "end": end,
+            "factor_name": "macd_hist",
+            "n_quantiles": 5,
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["factor_name"] == "macd_hist"
+    assert set(data["result"]["quantile_equity"].keys()) == {"1", "2", "3", "4", "5"}
 
 
 def test_quantile_backtest_unknown_factor_422(

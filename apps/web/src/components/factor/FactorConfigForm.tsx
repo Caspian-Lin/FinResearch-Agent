@@ -8,9 +8,9 @@
  * ToggleSelect for watchlist + enumerated fields, antd RangePicker for dates.
  *
  * The factor list mirrors the backend `FACTOR_REGISTRY` (FRA-55). Sensitivity
- * supports the factor *types* momentum/rsi/volatility (not reversal); the page
+ * supports the factor *types* momentum/rsi/volatility (not reversal/MACD); the page
  * derives the type from the chosen factor name and disables the sweep action for
- * reversal factors.
+ * unsupported factors.
  */
 import { Button, Col, DatePicker, Form, Input, InputNumber, Row, Select, Space, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';

@@ -138,12 +138,13 @@ def test_compute_and_store_persists_values(
         start=start,
         end=end,
         price_field=PriceField.ADJUSTED,
-        factor_names=["momentum_21", "rsi_14"],
+        factor_names=["momentum_21", "rsi_14", "macd_hist"],
     )
     assert n > 0
     # 每个因子都有行。
     assert _count(db_session, FactorValue.factor_name == "momentum_21") > 0
     assert _count(db_session, FactorValue.factor_name == "rsi_14") > 0
+    assert _count(db_session, FactorValue.factor_name == "macd_hist") > 0
 
 
 # ---------------------------------------------------------------------------
@@ -290,11 +291,11 @@ def test_nan_cells_not_stored(
 
 
 def test_factor_registry_has_default_factors() -> None:
-    # 覆盖 FRA-49(momentum/reversal)+ FRA-50(rsi/volatility)默认档。
+    # 覆盖 FRA-49(momentum/reversal)+ FRA-50(rsi/MACD/volatility)默认档。
     assert {"momentum_21", "momentum_63", "momentum_126", "reversal_5", "reversal_21"} <= set(
         FACTOR_REGISTRY
     )
-    assert {"rsi_14", "volatility_20d", "volatility_63d"} <= set(FACTOR_REGISTRY)
+    assert {"macd_hist", "rsi_14", "volatility_20d", "volatility_63d"} <= set(FACTOR_REGISTRY)
 
 
 def test_compute_factors_unknown_name_raises() -> None:

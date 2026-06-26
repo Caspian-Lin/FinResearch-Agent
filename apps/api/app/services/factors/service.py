@@ -2,7 +2,7 @@
 
 把「读价格 → 算因子 → 幂等 upsert 进 ``factor_values``」串成服务层,供 API /
 worker 调用。复用 FRA-27 price reader(:func:`load_prices`)读 ohlcv → 价格宽表;
-复用 FRA-49 / FRA-50 的因子计算函数(momentum / reversal / rsi / volatility);
+复用 FRA-49 / FRA-50 的因子计算函数(momentum / reversal / rsi / MACD / volatility);
 以 ``pg_insert`` ``ON CONFLICT`` 幂等 upsert 进 FRA-48 的 ``factor_values``
 hypertable(同 asset / factor / time / source 覆盖 ``value``)。
 
@@ -37,7 +37,7 @@ from app.services.factors.momentum import (
     reversal_5,
     reversal_21,
 )
-from app.services.factors.technical import rsi_14, volatility_20d, volatility_63d
+from app.services.factors.technical import macd_hist, rsi_14, volatility_20d, volatility_63d
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +45,14 @@ logger = logging.getLogger(__name__)
 FactorCompute = Callable[[pd.DataFrame], pd.DataFrame]
 
 #: 因子 registry:因子名(含参数)→ 计算函数。覆盖 FRA-49(momentum / reversal)+
-#: FRA-50(rsi / volatility)的默认参数档。调用方按名取用;新增因子在此注册一行。
+#: FRA-50(rsi / MACD / volatility)的默认参数档。调用方按名取用;新增因子在此注册一行。
 FACTOR_REGISTRY: dict[str, FactorCompute] = {
     "momentum_21": momentum_21,
     "momentum_63": momentum_63,
     "momentum_126": momentum_126,
     "reversal_5": reversal_5,
     "reversal_21": reversal_21,
+    "macd_hist": macd_hist,
     "rsi_14": rsi_14,
     "volatility_20d": volatility_20d,
     "volatility_63d": volatility_63d,
