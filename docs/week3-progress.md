@@ -36,7 +36,7 @@ Recommended sample:
 | Data source | `yfinance` |
 | Window | `2024-01-02` to `2024-12-31` |
 | Universe | `NVDA`, `AMD`, `QQQ` |
-| Factors | `momentum_63`, `rsi_14` |
+| Factors | `momentum_63`, `macd_hist`, `rsi_14` |
 | IC horizon | `5` trading days |
 | Quantile layers | `5` |
 | Sensitivity costs | `0`, `5`, `10`, `25` bps |
@@ -51,7 +51,7 @@ Steps:
 5. Run the IC view and confirm the chart plus summary cards render mean IC, ICIR, t-stat, p-value, positive rate, and sample count.
 6. Run the quantile view and confirm quantile equity curves, top-minus-bottom spread, and monotonicity render after the worker job reaches `success`.
 7. Run the sensitivity view and confirm the heatmap renders net Sharpe by window and cost after the worker job reaches `success`.
-8. Repeat the IC view with `rsi_14` over the same universe and window.
+8. Repeat IC / quantile with `macd_hist`, and repeat IC with `rsi_14` over the same universe and window.
 9. Optionally confirm the API / DB snapshots: factor values are in `factor_values`, async runs are in `backtest_runs`, and every run records the full universe, window, source, factor, horizon / quantile / sweep grid, price field, and cost assumptions.
 
 The same flow can be exercised through Swagger at `http://localhost:8000/docs`
@@ -79,7 +79,7 @@ and `/factors/sensitivity` after authenticating. Asset UUIDs come from
 | Project §14 deliverable | Implementation |
 |---|---|
 | 1M / 3M / 6M momentum | `momentum_21`, `momentum_63`, `momentum_126` in `app/services/factors/momentum.py` |
-| RSI, MACD, volatility | `rsi_14`, `macd`, `macd_hist`, `volatility_20d`, `volatility_63d`; default API demo uses the registered persisted factors `rsi_14` and `volatility_*` |
+| RSI, MACD, volatility | `rsi_14`, `macd` pure output, registered persisted `macd_hist`, `volatility_20d`, `volatility_63d`; `macd_hist` is available in compute, IC, quantile, async worker, and the Factor Research selector |
 | Factor ranking | `app/services/factors/ranking.py` rank / z-score / winsorize / quantile bucket |
 | Parameter sensitivity experiment | `factor_sensitivity_configs`, `run_sweep`, `summarize_sweep` |
 | Transaction-cost impact | Cost bands `0/5/10/25` bps in factor sensitivity; gross vs net metrics retained |

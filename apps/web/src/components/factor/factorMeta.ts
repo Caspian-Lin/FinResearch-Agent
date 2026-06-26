@@ -4,7 +4,7 @@
  * Kept out of `FactorConfigForm.tsx` so that file exports only a component
  * (react-refresh / fast-refresh requirement). The factor list mirrors the
  * backend `FACTOR_REGISTRY` (FRA-55); the sensitivity factor-type allow-list
- * mirrors `ALLOWED_FACTOR_TYPES` (momentum / rsi / volatility — not reversal).
+ * mirrors `ALLOWED_FACTOR_TYPES` (momentum / rsi / volatility — not reversal/MACD).
  */
 import type { FactorPriceField } from '@/types/api';
 
@@ -15,6 +15,7 @@ export const FACTOR_NAMES = [
   'momentum_126',
   'reversal_5',
   'reversal_21',
+  'macd_hist',
   'rsi_14',
   'volatility_20d',
   'volatility_63d',

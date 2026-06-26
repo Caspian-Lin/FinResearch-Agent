@@ -266,7 +266,8 @@ limitations.
 After syncing `NVDA`, `AMD`, and `QQQ`, open the Factor Research page and run the
 same explicit window, for example `2024-01-02` to `2024-12-31`, with adjusted
 prices. Start with `momentum_63`: render IC statistics, then run the quintile
-backtest and sensitivity heatmap. Repeat the IC view with `rsi_14`. The factor
+backtest and sensitivity heatmap. Repeat IC / quantile with `macd_hist` or
+`rsi_14`. The factor
 flow records its universe, date window, source, factor, horizon / quantile /
 sweep grid, price field, and cost assumptions in the API response or async
 `config_json`.
@@ -367,7 +368,7 @@ week scope live in [`docs/week3-progress.md`](./docs/week3-progress.md).
 - **Week 2** ✅ Backtesting engine & risk metrics (Buy&Hold, equal-weight, MA,
   momentum; Sharpe / max drawdown / volatility / turnover vs benchmark)
 - **Week 3** ✅ Factor research & parameter sensitivity (momentum / reversal /
-  RSI / volatility factors; IC + ICIR / t-stat / p-value significance; stratified
+  MACD histogram / RSI / volatility factors; IC + ICIR / t-stat / p-value significance; stratified
   quantile backtest with top−bottom spread; factor × window × cost sensitivity
   grid; async worker jobs; factor research UI with IC chart / quantile curves /
   heatmap). Methodology in [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).

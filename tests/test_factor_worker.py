@@ -173,7 +173,7 @@ def test_execute_factor_compute_success(db_session: Session) -> None:
             "start": start.isoformat(),
             "end": end.isoformat(),
             "price_field": "adjusted",
-            "factor_names": ["momentum_21", "rsi_14"],
+            "factor_names": ["momentum_21", "rsi_14", "macd_hist"],
         },
         start=start,
         end=end,
@@ -183,7 +183,7 @@ def test_execute_factor_compute_success(db_session: Session) -> None:
 
     assert result["status"] == "success"
     assert result["result"]["rows_written"] > 0
-    assert set(result["result"]["factor_names"]) == {"momentum_21", "rsi_14"}
+    assert set(result["result"]["factor_names"]) == {"momentum_21", "rsi_14", "macd_hist"}
     db_session.refresh(run)
     assert run.status == "success"
     assert run.error_message is None
@@ -253,6 +253,34 @@ def test_execute_factor_quantile_success(db_session: Session) -> None:
     db_session.refresh(run)
     assert run.status == "success"
     assert run.result_json is not None
+
+
+def test_execute_factor_quantile_macd_hist_success(db_session: Session) -> None:
+    user = _make_user(db_session, "U3M")
+    assets, start, end = _seed_universe(db_session)
+    run = _make_run(
+        db_session,
+        user,
+        run_kind="factor_quantile",
+        config={
+            "universe": [str(a.id) for a in assets],
+            "source": SRC,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "price_field": "adjusted",
+            "factor_name": "macd_hist",
+            "n_quantiles": 5,
+        },
+        start=start,
+        end=end,
+    )
+
+    result = execute_factor_quantile(str(run.id))
+
+    assert result["status"] == "success"
+    assert set(result["result"]["quantile_equity"].keys()) == {"1", "2", "3", "4", "5"}
+    db_session.refresh(run)
+    assert run.status == "success"
 
 
 def test_execute_factor_quantile_unknown_factor_failed(db_session: Session) -> None:

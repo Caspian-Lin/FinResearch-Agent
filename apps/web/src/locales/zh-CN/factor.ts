@@ -3,7 +3,7 @@
  *
  * 因子研究页面文案:配置表单(标的池/因子/窗口)、三类研究操作(IC / 分层 / 敏感性)、
  * 可视化(IC 时序+统计卡片、分层曲线+多空价差、敏感性热力图)、异步轮询状态。
- * 金融缩写(IC、ICIR、t-stat、p-value、Sharpe、bps)与因子名(momentum_21、rsi_14)
+ * 金融缩写(IC、ICIR、t-stat、p-value、Sharpe、bps)与因子名(momentum_21、macd_hist、rsi_14)
  * 保留原文。要求:与 `en/factor.ts` 表达一致,不夸大预测能力,不构成投资建议。
  */
 const factor = {
@@ -31,6 +31,7 @@ const factor = {
     momentum_126: '动量 126 日',
     reversal_5: '反转 5 日',
     reversal_21: '反转 21 日',
+    macd_hist: 'MACD 柱状图',
     rsi_14: 'RSI 14',
     volatility_20d: '波动率 20 日',
     volatility_63d: '波动率 63 日',

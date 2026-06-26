@@ -47,11 +47,12 @@ DataFrame 约定):
 | 动量 | `momentum(prices, window)` | `p_t / p_{t-window} − 1`(滚动窗口,只看过去) |
 | 反转 | `reversal(prices, window)` | `−momentum`(短窗反转,= 负动量) |
 | RSI | `rsi(prices, period)` | 滚动 RSI(平均涨幅 / 平均涨跌幅) |
+| MACD | `macd_hist(prices)` | MACD line − signal line(EMA 12/26/9,只看过去) |
 | 波动率 | `volatility(prices, window)` | 滚动日收益标准差(年化由评估层按需) |
 
 实现:`app/services/factors/momentum.py`、`technical.py`。注册表
 `FACTOR_REGISTRY`(`service.py`)按名取用,默认参数档:`momentum_21/63/126`、
-`reversal_5/21`、`rsi_14`、`volatility_20d/63d`。
+`reversal_5/21`、`macd_hist`、`rsi_14`、`volatility_20d/63d`。
 
 **预热期**:`window` 长度的前若干行无足够历史,输出 `NaN`(不前填、不补 0),
 下游评估自动跳过 NaN。这是防前视的第一道关口——因子在 t 行只用了 ≤ t 的价格。
