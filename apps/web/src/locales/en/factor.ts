@@ -3,10 +3,12 @@
  *
  * Factor research page copy: config form (universe / factor / window), the three
  * research actions (IC / quantile / sensitivity), visualizations (IC series +
- * summary cards, quantile curves + spread, sensitivity heatmap), and async poll
- * status. Financial abbreviations (IC, ICIR, t-stat, p-value, Sharpe, bps) and
- * factor names (momentum_21, macd_hist, rsi_14) stay verbatim. Keep parity with
- * `zh-CN/factor.ts`; do not overstate predictive power; not investment advice.
+ * summary cards, quantile curves + spread, sensitivity heatmap), async poll
+ * status, and the one-page factor performance report + JSON/Markdown export
+ * (FRA-77). Financial abbreviations (IC, ICIR, t-stat, p-value, Sharpe, bps)
+ * and factor names (momentum_21, macd_hist, rsi_14) stay verbatim. Keep parity
+ * with `zh-CN/factor.ts`; do not overstate predictive power; not investment
+ * advice.
  */
 const factor = {
   page: {
@@ -50,6 +52,7 @@ const factor = {
     ranking: 'Ranking',
     quantile: 'Quantile',
     sensitivity: 'Sensitivity',
+    report: 'Report',
   },
 
   actions: {
@@ -137,6 +140,58 @@ const factor = {
       success: 'Done',
       success_no_data: 'No data',
       failed: 'Failed',
+    },
+  },
+
+  report: {
+    title: 'Factor performance report',
+    intro:
+      'A one-page summary of factor performance under the current configuration (historical simulation, not investment advice).',
+    notRun: 'Not run',
+    none: 'None',
+    headings: {
+      config: 'Configuration & assumptions',
+      metrics: 'Performance summary',
+      limitations: 'Limitations & disclaimer',
+    },
+    config: {
+      factor: 'Factor',
+      source: 'Source',
+      window: 'Data window',
+      universe: 'Universe size',
+      horizon: 'IC horizon',
+      nQuantiles: 'Quantiles',
+      priceField: 'Price field',
+      costBands: 'Cost bands (bps)',
+    },
+    metrics: {
+      icSummary: 'IC summary',
+      quantile: 'Quantile backtest',
+      sensitivity: 'Sensitivity',
+      monotonicity: 'Monotonicity',
+      tmbEnding: 'Top−bottom ending value',
+      bestSharpe: 'Best net Sharpe',
+      worstSharpe: 'Worst net Sharpe',
+      highImpactParams: 'High-impact params',
+      noHighImpact: 'No high-impact params',
+    },
+    export: {
+      json: 'Export JSON',
+      markdown: 'Export Markdown',
+    },
+    limitations: {
+      title: 'Limitations & disclaimer',
+      icNotAlpha:
+        'IC measures cross-sectional rank predictive power only — it excludes trading costs, slippage, market impact, capacity, and shortability. A statistically significant IC may vanish once costs and investability are accounted for.',
+      shortWindow:
+        'The default demo window (~1 year, small sample) leaves IC t-stats and quantile monotonicity unstable; picking optimal parameters on the sensitivity grid almost certainly overfits.',
+      singleSource:
+        'Data comes from yfinance, a single free source — possible split-adjustment errors, missing delisted data, and lag. Factor values and IC inherit all biases of that source.',
+      survivorship:
+        'The universe comes from the user watchlist; the system has no historical index constituents or delisted securities, so survivorship bias cannot be fully removed. Results are a historical simulation of the given stock set over the window only.',
+      lookAhead:
+        'System-internal factors are lookahead-safe via rolling windows + warmup NaN + a shift(1) boundary; future external / LLM-generated factors must separately guarantee their inputs contain no future data.',
+      disclaimer: 'Historical simulation for research only — does not predict the future and is not investment advice.',
     },
   },
 } as const;

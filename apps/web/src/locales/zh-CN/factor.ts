@@ -2,7 +2,8 @@
  * 简体中文 — `factor` 命名空间(FRA-58)。
  *
  * 因子研究页面文案:配置表单(标的池/因子/窗口)、三类研究操作(IC / 分层 / 敏感性)、
- * 可视化(IC 时序+统计卡片、分层曲线+多空价差、敏感性热力图)、异步轮询状态。
+ * 可视化(IC 时序+统计卡片、分层曲线+多空价差、敏感性热力图)、异步轮询状态、
+ * 一页式因子表现报告与 JSON/Markdown 导出(FRA-77)。
  * 金融缩写(IC、ICIR、t-stat、p-value、Sharpe、bps)与因子名(momentum_21、macd_hist、rsi_14)
  * 保留原文。要求:与 `en/factor.ts` 表达一致,不夸大预测能力,不构成投资建议。
  */
@@ -47,6 +48,7 @@ const factor = {
     ranking: '排名快照',
     quantile: '分层回测',
     sensitivity: '敏感性',
+    report: '报告',
   },
 
   actions: {
@@ -131,6 +133,57 @@ const factor = {
       success: '完成',
       success_no_data: '无数据',
       failed: '失败',
+    },
+  },
+
+  report: {
+    title: '因子表现报告',
+    intro: '当前配置下的因子表现一页式总结(历史模拟,非投资建议)。',
+    notRun: '未运行',
+    none: '无',
+    headings: {
+      config: '配置与假设',
+      metrics: '表现汇总',
+      limitations: '局限与声明',
+    },
+    config: {
+      factor: '因子',
+      source: '数据源',
+      window: '数据窗口',
+      universe: '标的池规模',
+      horizon: 'IC 前瞻期',
+      nQuantiles: '分层数',
+      priceField: '价格字段',
+      costBands: '成本档位 (bps)',
+    },
+    metrics: {
+      icSummary: 'IC 汇总',
+      quantile: '分层回测',
+      sensitivity: '敏感性',
+      monotonicity: '单调性',
+      tmbEnding: '多空价差期末值',
+      bestSharpe: '最佳净夏普',
+      worstSharpe: '最差净夏普',
+      highImpactParams: '高敏感参数',
+      noHighImpact: '无高敏感参数',
+    },
+    export: {
+      json: '导出 JSON',
+      markdown: '导出 Markdown',
+    },
+    limitations: {
+      title: '局限与声明',
+      icNotAlpha:
+        'IC 衡量截面排序预测力,不含交易成本、滑点、冲击成本、容量与卖空可行性;统计显著的 IC 在扣费与考虑可投资性后可能消失。',
+      shortWindow:
+        '默认 demo 窗口(~1 年、小样本)下 IC 的 t-stat 与分层单调性都不稳定;在敏感性网格上挑最优参数几乎必然过拟合。',
+      singleSource:
+        '数据仅来自 yfinance 单一免费源,可能存在拆分调整错误、退市数据缺失与延迟;因子值与 IC 继承该源的所有偏差。',
+      survivorship:
+        'universe 来自用户标的池,系统未接入历史指数成分与退市证券,无法完全消除幸存者偏差;结论仅为该给定股票池在该窗口的历史模拟。',
+      lookAhead:
+        '系统内部因子由滚动窗口 + 预热 NaN + shift(1) 边界保证无前视;未来若接入外部/LLM 生成因子,需单独保证其特征不含未来数据。',
+      disclaimer: '历史模拟,仅供研究学习,不预测未来、不构成投资建议。',
     },
   },
 } as const;
