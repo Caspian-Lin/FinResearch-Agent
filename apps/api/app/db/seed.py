@@ -1,26 +1,42 @@
-"""Idempotent asset metadata seed for the Week 1 sample universe.
+"""Idempotent asset metadata seed — static reference set + dynamic full market.
 
-One-shot, manually invoked via ``make seed`` (``python -m app.db.seed``).
-Not coupled to backend startup — run once to populate the database with
-~50 reference instruments (US large-caps, US ETFs, A-share blue chips).
+Two complementary entry points, both invoked manually via ``make seed``
+(``python -m app.db.seed``) and not coupled to backend startup:
 
-Only metadata (symbol/exchange/name/asset_type/currency) is seeded here.
-Price history (OHLCV) is synced on demand per asset, never by this script.
+* :func:`seed_assets` — the FRA-21 static :data:`UNIVERSE` (~50 reference
+  instruments in the FRA-78 unified symbol convention). Offline-friendly,
+  CI-safe, and the historical bootstrap path.
+* :func:`seed_from_akshare` — the FRA-79 dynamic full-market pull via the
+  AkShare universe fetchers (~24k instruments across A/HK/US plus the
+  terminated-listing boards). ``make seed`` / :func:`main` use this by
+  default so newly listed and delisted instruments are picked up live.
 
-The seed is idempotent: re-running it upserts every row via
-``ON CONFLICT (symbol, exchange) DO UPDATE`` and reports inserted vs
-updated counts using the ``xmax = 0`` trick (same pattern as the OHLCV
-upsert in ``app/services/ohlcv.py``). No rows are duplicated.
+Only metadata (symbol/exchange/name/asset_type/currency/data_source/
+list_status) is seeded here. Price history (OHLCV) is synced on demand per
+asset, never by this script.
+
+Both paths upsert idempotently via ``ON CONFLICT (symbol, exchange)
+DO UPDATE`` and report inserted-vs-updated counts using the ``xmax = 0``
+trick (same pattern as the OHLCV upsert in ``app/services/ohlcv.py``). No
+rows are duplicated. The dynamic path upserts the ``active`` universe first,
+then ``delisted``, so a delisted flag wins on conflict.
 """
 
 from __future__ import annotations
+
+from collections.abc import Iterable
 
 from sqlalchemy import literal_column
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, engine
 from app.models.asset import Asset
+
+# akshare_universe imports no AkShare library at module top (each fetcher
+# lazy-imports it), so this module-level import stays cheap and does not pull
+# in the optional dependency — only actually calling the fetchers does.
+from app.services.datasources.akshare_universe import AssetSpec, fetch_all_universes
 
 # Sample universe (~50 instruments), FRA-78 unified symbol convention.
 # Every symbol carries an exchange suffix so it round-trips unambiguously
@@ -419,21 +435,14 @@ UNIVERSE: list[dict] = [
 ]
 
 
-def seed_assets(db: Session) -> tuple[int, int]:
-    """Upsert UNIVERSE into ``assets``; return ``(inserted, updated)``.
+def _rows_from_dicts(records: Iterable[dict]) -> list[dict]:
+    """Coerce seed dicts (the :data:`UNIVERSE` shape) to full upsert rows.
 
-    Idempotent via ``ON CONFLICT (symbol, exchange) DO UPDATE``. On conflict
-    the mutable metadata columns (name/asset_type/currency/data_source) are
-    refreshed from the incoming row. ``list_status`` is not seeded — it keeps
-    the model default ``active`` and is only mutated by listing-state syncs.
-    ``xmax = 0`` distinguishes newly inserted rows from updated ones (an
-    updated row's xmax holds the updating xact id). The caller receives a
-    committed transaction; this function commits.
+    Each input dict carries the metadata columns; ``list_status`` is filled
+    with the model default ``'active'`` when absent so the static universe and
+    the dynamic specs share one upsert path.
     """
-    if not UNIVERSE:
-        return (0, 0)
-
-    rows = [
+    return [
         {
             "symbol": r["symbol"],
             "exchange": r["exchange"],
@@ -441,35 +450,122 @@ def seed_assets(db: Session) -> tuple[int, int]:
             "asset_type": r["asset_type"],
             "currency": r["currency"],
             "data_source": r["data_source"],
+            "list_status": r.get("list_status", "active"),
         }
-        for r in UNIVERSE
+        for r in records
     ]
-    stmt = pg_insert(Asset).values(rows)
-    stmt = stmt.on_conflict_do_update(
-        index_elements=[Asset.symbol, Asset.exchange],
-        set_={
-            "name": stmt.excluded.name,
-            "asset_type": stmt.excluded.asset_type,
-            "currency": stmt.excluded.currency,
-            "data_source": stmt.excluded.data_source,
-        },
-    ).returning(literal_column("(xmax = 0)").label("inserted"))
-    result = db.execute(stmt)
-    flags = [row.inserted for row in result]
-    inserted = sum(1 for f in flags if f)
-    updated = len(flags) - inserted
+
+
+# Each row binds 7 params; Postgres caps a single statement at 65535 bind
+# params, so one giant INSERT for the full market (~24k rows) overflows it.
+# Upsert in chunks well under the ceiling and accumulate counts across them.
+_UPSERT_CHUNK = 4000
+
+
+def _upsert_assets(db: Session, rows: list[dict]) -> tuple[int, int]:
+    """Upsert asset ``rows`` on ``(symbol, exchange)``; return ``(inserted, updated)``.
+
+    On conflict every mutable column — including ``list_status`` — is
+    refreshed from the incoming row, so re-seeds (static or dynamic) keep the
+    table in sync with the source. ``xmax = 0`` distinguishes inserts from
+    updates (an updated row's xmax holds the updating xact id). Rows are
+    chunked (see :data:`_UPSERT_CHUNK`) to stay under Postgres' 65535 bind
+    param ceiling; counts accumulate across chunks. Commits once at the end.
+    """
+    if not rows:
+        return (0, 0)
+
+    # Collapse duplicate (symbol, exchange) keys first: a single
+    # INSERT … ON CONFLICT DO UPDATE statement cannot target the same row
+    # twice (Postgres raises CardinalityViolation), and the source feeds can
+    # emit repeats (e.g. a delisted code on both SZ/SH boards' overlap, or a
+    # re-listed code). Keep the last occurrence so later/lower-priority feeds
+    # win — matching the active-then-delisted ordering of seed_from_akshare.
+    deduped: dict[tuple[str, str], dict] = {}
+    for r in rows:
+        deduped[(r["symbol"], r["exchange"])] = r
+    unique_rows = list(deduped.values())
+
+    inserted = 0
+    updated = 0
+    for start in range(0, len(unique_rows), _UPSERT_CHUNK):
+        batch = unique_rows[start : start + _UPSERT_CHUNK]
+        stmt = pg_insert(Asset).values(batch)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[Asset.symbol, Asset.exchange],
+            set_={
+                "name": stmt.excluded.name,
+                "asset_type": stmt.excluded.asset_type,
+                "currency": stmt.excluded.currency,
+                "data_source": stmt.excluded.data_source,
+                "list_status": stmt.excluded.list_status,
+            },
+        ).returning(literal_column("(xmax = 0)").label("inserted"))
+        result = db.execute(stmt)
+        flags = [row.inserted for row in result]
+        ins = sum(1 for f in flags if f)
+        inserted += ins
+        updated += len(flags) - ins
     db.commit()
     return (inserted, updated)
 
 
+def seed_assets(db: Session) -> tuple[int, int]:
+    """Upsert the static :data:`UNIVERSE`; return ``(inserted, updated)``.
+
+    The FRA-21 reference set in FRA-78 unified-symbol form. Idempotent and
+    offline-friendly — no AkShare dependency. Kept as the CI-safe bootstrap
+    path and a fallback for :func:`seed_from_akshare`.
+    """
+    return _upsert_assets(db, _rows_from_dicts(UNIVERSE))
+
+
+def seed_from_akshare(db: Session) -> dict[str, tuple[int, int]]:
+    """Upsert the dynamic full-market universe via AkShare (FRA-79).
+
+    Pulls the three live markets + the terminated-listing boards
+    (:func:`app.services.datasources.akshare_universe.fetch_all_universes`),
+    upserts the ``active`` universe first, then ``delisted`` so a delisted
+    flag wins on a ``(symbol, exchange)`` conflict. Returns per-group
+    ``(inserted, updated)`` counts.
+    """
+    active_specs, delisted_specs = fetch_all_universes()
+    counts = {
+        "active": _upsert_assets(db, [_spec_to_row(s) for s in active_specs]),
+        "delisted": _upsert_assets(db, [_spec_to_row(s) for s in delisted_specs]),
+    }
+    return counts
+
+
+def _spec_to_row(spec: AssetSpec) -> dict:
+    """Flatten an :class:`AssetSpec` into the upsert row shape."""
+    return {
+        "symbol": spec.symbol,
+        "exchange": spec.exchange,
+        "name": spec.name,
+        "asset_type": spec.asset_type,
+        "currency": spec.currency,
+        "data_source": spec.data_source,
+        "list_status": spec.list_status,
+    }
+
+
 def main() -> None:
-    """Run the seed against the configured database and print a summary."""
+    """Run the dynamic AkShare seed and print a per-group summary."""
     db = SessionLocal()
     try:
-        inserted, updated = seed_assets(db)
-        print(f"Seeded {len(UNIVERSE)} assets: {inserted} inserted, {updated} updated")
+        counts = seed_from_akshare(db)
+        (ins_a, upd_a) = counts["active"]
+        (ins_d, upd_d) = counts["delisted"]
+        print(
+            "Seeded from AkShare — "
+            f"active {ins_a} inserted / {upd_a} updated, "
+            f"delisted {ins_d} inserted / {upd_d} updated "
+            f"(total {ins_a + ins_d} new, {upd_a + upd_d} updated)"
+        )
     finally:
         db.close()
+        engine.dispose()  # close the pool so the one-shot CLI exits clean
 
 
 if __name__ == "__main__":
