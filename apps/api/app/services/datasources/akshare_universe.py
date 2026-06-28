@@ -127,7 +127,16 @@ def fetch_a_share_universe() -> list[AssetSpec]:
 
     Source: ``ak.stock_info_a_code_name()`` → ``['code', 'name']`` (~5.5k
     rows). Each 6-digit code is mapped to its exchange + suffix by first
-    digit and emitted with ``data_source='akshare'``, ``currency='CNY'``.
+    digit and emitted with ``currency='CNY'``.
+
+    ``data_source`` is ``'yfinance'`` (FRA-83), **not** ``'akshare'``: akshare
+    is used only to *list* A-shares here, but its OHLCV endpoint
+    ``stock_zh_a_hist`` is rate-limited / anti-scraped and returns empty in
+    practice, while yfinance can pull A-share daily bars via the ``.SS``/
+    ``.SZ`` ticker form (verified empirically: 工商银行 ``601398.SS`` returns
+    9 bars via yfinance, while ``sh601398`` returns ``shape (0,0)`` via
+    akshare). So akshare stays the *universe source* and yfinance the *bar
+    source* for A-shares — same split as HK/US.
     """
     import akshare as ak
 
@@ -143,7 +152,7 @@ def fetch_a_share_universe() -> list[AssetSpec]:
                 name=str(name).strip(),
                 asset_type="stock",
                 currency="CNY",
-                data_source="akshare",
+                data_source="yfinance",
                 list_status="active",
             )
         )
@@ -238,7 +247,7 @@ def fetch_delisted_a_shares() -> list[AssetSpec]:
                 name=str(name).strip(),
                 asset_type="stock",
                 currency="CNY",
-                data_source="akshare",
+                data_source="yfinance",
                 list_status="delisted",
             )
         )
@@ -254,7 +263,7 @@ def fetch_delisted_a_shares() -> list[AssetSpec]:
                 name=str(name).strip(),
                 asset_type="stock",
                 currency="CNY",
-                data_source="akshare",
+                data_source="yfinance",
                 list_status="delisted",
             )
         )

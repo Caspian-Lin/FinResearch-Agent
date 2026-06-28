@@ -46,9 +46,12 @@ from app.services.datasources.akshare_universe import AssetSpec, fetch_all_unive
 # - A-share blue chips: SSE ``.SH`` / SZSE ``.SZ``, CNY (legacy ``.SS`` is no
 #   longer used — FRA-78 standardized SSE to ``.SH``); name is the Chinese
 #   company name.
-# ``data_source`` records each asset's preferred source and is upserted
-# alongside the metadata so re-seeds can refresh it: A-shares → ``akshare``,
-# everything else (US/HK) → ``yfinance``.
+# ``data_source`` records each asset's preferred *bar* source (FRA-83):
+# everything → ``yfinance``. A-share bars are pulled via yfinance (``.SS``/
+# ``.SZ``) because akshare's ``stock_zh_a_hist`` is rate-limited and returns
+# empty in practice (verified: ``sh601398`` → ``shape (0,0)``), while yfinance
+# is verified working (``601398.SS`` → 9 bars); akshare is used only to *list*
+# A-shares (see ``akshare_universe.py``), not to fetch their bars.
 # The Asset model does NOT normalize symbol/exchange to upper case, so the
 # values below are stored as-is. US symbols are already upper-case; A-share
 # symbols keep their ``.SH``/``.SZ`` suffix exactly.
@@ -334,7 +337,7 @@ UNIVERSE: list[dict] = [
         "name": "贵州茅台",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "601318.SH",
@@ -342,7 +345,7 @@ UNIVERSE: list[dict] = [
         "name": "中国平安",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "600036.SH",
@@ -350,7 +353,7 @@ UNIVERSE: list[dict] = [
         "name": "招商银行",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "601398.SH",
@@ -358,7 +361,7 @@ UNIVERSE: list[dict] = [
         "name": "工商银行",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "600276.SH",
@@ -366,7 +369,7 @@ UNIVERSE: list[dict] = [
         "name": "恒瑞医药",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "601012.SH",
@@ -374,7 +377,7 @@ UNIVERSE: list[dict] = [
         "name": "隆基绿能",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "000001.SZ",
@@ -382,7 +385,7 @@ UNIVERSE: list[dict] = [
         "name": "平安银行",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "000858.SZ",
@@ -390,7 +393,7 @@ UNIVERSE: list[dict] = [
         "name": "五粮液",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "300750.SZ",
@@ -398,7 +401,7 @@ UNIVERSE: list[dict] = [
         "name": "宁德时代",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "000333.SZ",
@@ -406,7 +409,7 @@ UNIVERSE: list[dict] = [
         "name": "美的集团",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "002594.SZ",
@@ -414,7 +417,7 @@ UNIVERSE: list[dict] = [
         "name": "比亚迪",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "000651.SZ",
@@ -422,7 +425,7 @@ UNIVERSE: list[dict] = [
         "name": "格力电器",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
     {
         "symbol": "002475.SZ",
@@ -430,7 +433,7 @@ UNIVERSE: list[dict] = [
         "name": "立讯精密",
         "asset_type": "stock",
         "currency": "CNY",
-        "data_source": "akshare",
+        "data_source": "yfinance",
     },
 ]
 
