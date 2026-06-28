@@ -92,9 +92,9 @@ def test_fetch_a_share_universe_normalizes_to_unified_suffix(
     )
     specs = fetch_a_share_universe()
     assert specs == [
-        AssetSpec("600519.SH", "SSE", "贵州茅台", "stock", "CNY", "akshare", "active"),
-        AssetSpec("000001.SZ", "SZSE", "平安银行", "stock", "CNY", "akshare", "active"),
-        AssetSpec("430047.BJ", "BSE", "诺思兰德", "stock", "CNY", "akshare", "active"),
+        AssetSpec("600519.SH", "SSE", "贵州茅台", "stock", "CNY", "yfinance", "active"),
+        AssetSpec("000001.SZ", "SZSE", "平安银行", "stock", "CNY", "yfinance", "active"),
+        AssetSpec("430047.BJ", "BSE", "诺思兰德", "stock", "CNY", "yfinance", "active"),
     ]
 
 
@@ -147,8 +147,8 @@ def test_fetch_delisted_a_shares_tags_delisted_across_both_boards(
     )
     specs = fetch_delisted_a_shares()
     assert specs == [
-        AssetSpec("000003.SZ", "SZSE", "PT金田Ａ", "stock", "CNY", "akshare", "delisted"),
-        AssetSpec("600001.SH", "SSE", "邯郸钢铁", "stock", "CNY", "akshare", "delisted"),
+        AssetSpec("000003.SZ", "SZSE", "PT金田Ａ", "stock", "CNY", "yfinance", "delisted"),
+        AssetSpec("600001.SH", "SSE", "邯郸钢铁", "stock", "CNY", "yfinance", "delisted"),
     ]
 
 
