@@ -22,298 +22,343 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.asset import Asset
 
-# Sample universe (~50 instruments).
-# - US large-caps: NASDAQ / NYSE, USD
-# - US ETFs: AMEX, USD
-# - A-share blue chips: SSE (.SS) / SZSE (.SZ), CNY; symbol carries the
-#   yfinance suffix verbatim (e.g. ``600519.SS``); name is the Chinese
+# Sample universe (~50 instruments), FRA-78 unified symbol convention.
+# Every symbol carries an exchange suffix so it round-trips unambiguously
+# across data sources:
+# - US large-caps: NASDAQ ``.O`` / NYSE ``.N``, USD
+# - US ETFs: AMEX ``.A``, USD
+# - A-share blue chips: SSE ``.SH`` / SZSE ``.SZ``, CNY (legacy ``.SS`` is no
+#   longer used — FRA-78 standardized SSE to ``.SH``); name is the Chinese
 #   company name.
+# ``data_source`` records each asset's preferred source and is upserted
+# alongside the metadata so re-seeds can refresh it: A-shares → ``akshare``,
+# everything else (US/HK) → ``yfinance``.
 # The Asset model does NOT normalize symbol/exchange to upper case, so the
 # values below are stored as-is. US symbols are already upper-case; A-share
-# symbols keep their ``.SS``/``.SZ`` suffix exactly.
+# symbols keep their ``.SH``/``.SZ`` suffix exactly.
 UNIVERSE: list[dict] = [
     # ---------- US large-cap stocks ----------
     {
-        "symbol": "AAPL",
+        "symbol": "AAPL.O",
         "exchange": "NASDAQ",
         "name": "Apple Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "MSFT",
+        "symbol": "MSFT.O",
         "exchange": "NASDAQ",
         "name": "Microsoft Corporation",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "GOOGL",
+        "symbol": "GOOGL.O",
         "exchange": "NASDAQ",
         "name": "Alphabet Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "AMZN",
+        "symbol": "AMZN.O",
         "exchange": "NASDAQ",
         "name": "Amazon.com, Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "NVDA",
+        "symbol": "NVDA.O",
         "exchange": "NASDAQ",
         "name": "NVIDIA Corporation",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "META",
+        "symbol": "META.O",
         "exchange": "NASDAQ",
         "name": "Meta Platforms, Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "TSLA",
+        "symbol": "TSLA.O",
         "exchange": "NASDAQ",
         "name": "Tesla, Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "AVGO",
+        "symbol": "AVGO.O",
         "exchange": "NASDAQ",
         "name": "Broadcom Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "PEP",
+        "symbol": "PEP.O",
         "exchange": "NASDAQ",
         "name": "PepsiCo, Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "COST",
+        "symbol": "COST.O",
         "exchange": "NASDAQ",
         "name": "Costco Wholesale Corporation",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "NFLX",
+        "symbol": "NFLX.O",
         "exchange": "NASDAQ",
         "name": "Netflix, Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "AMD",
+        "symbol": "AMD.O",
         "exchange": "NASDAQ",
         "name": "Advanced Micro Devices, Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "INTC",
+        "symbol": "INTC.O",
         "exchange": "NASDAQ",
         "name": "Intel Corporation",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "JPM",
+        "symbol": "JPM.N",
         "exchange": "NYSE",
         "name": "JPMorgan Chase & Co.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "V",
+        "symbol": "V.N",
         "exchange": "NYSE",
         "name": "Visa Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "JNJ",
+        "symbol": "JNJ.N",
         "exchange": "NYSE",
         "name": "Johnson & Johnson",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "WMT",
+        "symbol": "WMT.N",
         "exchange": "NYSE",
         "name": "Walmart Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "PG",
+        "symbol": "PG.N",
         "exchange": "NYSE",
         "name": "Procter & Gamble Company",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "MA",
+        "symbol": "MA.N",
         "exchange": "NYSE",
         "name": "Mastercard Incorporated",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "HD",
+        "symbol": "HD.N",
         "exchange": "NYSE",
         "name": "The Home Depot, Inc.",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "KO",
+        "symbol": "KO.N",
         "exchange": "NYSE",
         "name": "The Coca-Cola Company",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "DIS",
+        "symbol": "DIS.N",
         "exchange": "NYSE",
         "name": "The Walt Disney Company",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "BAC",
+        "symbol": "BAC.N",
         "exchange": "NYSE",
         "name": "Bank of America Corporation",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "XOM",
+        "symbol": "XOM.N",
         "exchange": "NYSE",
         "name": "Exxon Mobil Corporation",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     # ---------- US ETFs ----------
     {
-        "symbol": "SPY",
+        "symbol": "SPY.A",
         "exchange": "AMEX",
         "name": "SPDR S&P 500 ETF Trust",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "QQQ",
+        "symbol": "QQQ.A",
         "exchange": "AMEX",
         "name": "Invesco QQQ Trust (Nasdaq 100)",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "DIA",
+        "symbol": "DIA.A",
         "exchange": "AMEX",
         "name": "SPDR Dow Jones Industrial Average ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "IWM",
+        "symbol": "IWM.A",
         "exchange": "AMEX",
         "name": "iShares Russell 2000 ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "VOO",
+        "symbol": "VOO.A",
         "exchange": "AMEX",
         "name": "Vanguard S&P 500 ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "VTI",
+        "symbol": "VTI.A",
         "exchange": "AMEX",
         "name": "Vanguard Total Stock Market ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "EEM",
+        "symbol": "EEM.A",
         "exchange": "AMEX",
         "name": "iShares MSCI Emerging Markets ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "XLK",
+        "symbol": "XLK.A",
         "exchange": "AMEX",
         "name": "Technology Select Sector SPDR ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "XLF",
+        "symbol": "XLF.A",
         "exchange": "AMEX",
         "name": "Financial Select Sector SPDR ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
-        "symbol": "XLE",
+        "symbol": "XLE.A",
         "exchange": "AMEX",
         "name": "Energy Select Sector SPDR ETF",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     # ---------- A-share blue chips ----------
     {
-        "symbol": "600519.SS",
+        "symbol": "600519.SH",
         "exchange": "SSE",
         "name": "贵州茅台",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
-        "symbol": "601318.SS",
+        "symbol": "601318.SH",
         "exchange": "SSE",
         "name": "中国平安",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
-        "symbol": "600036.SS",
+        "symbol": "600036.SH",
         "exchange": "SSE",
         "name": "招商银行",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
-        "symbol": "601398.SS",
+        "symbol": "601398.SH",
         "exchange": "SSE",
         "name": "工商银行",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
-        "symbol": "600276.SS",
+        "symbol": "600276.SH",
         "exchange": "SSE",
         "name": "恒瑞医药",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
-        "symbol": "601012.SS",
+        "symbol": "601012.SH",
         "exchange": "SSE",
         "name": "隆基绿能",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
         "symbol": "000001.SZ",
@@ -321,6 +366,7 @@ UNIVERSE: list[dict] = [
         "name": "平安银行",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
         "symbol": "000858.SZ",
@@ -328,6 +374,7 @@ UNIVERSE: list[dict] = [
         "name": "五粮液",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
         "symbol": "300750.SZ",
@@ -335,6 +382,7 @@ UNIVERSE: list[dict] = [
         "name": "宁德时代",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
         "symbol": "000333.SZ",
@@ -342,6 +390,7 @@ UNIVERSE: list[dict] = [
         "name": "美的集团",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
         "symbol": "002594.SZ",
@@ -349,6 +398,7 @@ UNIVERSE: list[dict] = [
         "name": "比亚迪",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
         "symbol": "000651.SZ",
@@ -356,6 +406,7 @@ UNIVERSE: list[dict] = [
         "name": "格力电器",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
     {
         "symbol": "002475.SZ",
@@ -363,6 +414,7 @@ UNIVERSE: list[dict] = [
         "name": "立讯精密",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
 ]
 
@@ -371,10 +423,12 @@ def seed_assets(db: Session) -> tuple[int, int]:
     """Upsert UNIVERSE into ``assets``; return ``(inserted, updated)``.
 
     Idempotent via ``ON CONFLICT (symbol, exchange) DO UPDATE``. On conflict
-    the mutable metadata columns (name/asset_type/currency) are refreshed
-    from the incoming row. ``xmax = 0`` distinguishes newly inserted rows
-    from updated ones (an updated row's xmax holds the updating xact id).
-    The caller receives a committed transaction; this function commits.
+    the mutable metadata columns (name/asset_type/currency/data_source) are
+    refreshed from the incoming row. ``list_status`` is not seeded — it keeps
+    the model default ``active`` and is only mutated by listing-state syncs.
+    ``xmax = 0`` distinguishes newly inserted rows from updated ones (an
+    updated row's xmax holds the updating xact id). The caller receives a
+    committed transaction; this function commits.
     """
     if not UNIVERSE:
         return (0, 0)
@@ -386,6 +440,7 @@ def seed_assets(db: Session) -> tuple[int, int]:
             "name": r["name"],
             "asset_type": r["asset_type"],
             "currency": r["currency"],
+            "data_source": r["data_source"],
         }
         for r in UNIVERSE
     ]
@@ -396,6 +451,7 @@ def seed_assets(db: Session) -> tuple[int, int]:
             "name": stmt.excluded.name,
             "asset_type": stmt.excluded.asset_type,
             "currency": stmt.excluded.currency,
+            "data_source": stmt.excluded.data_source,
         },
     ).returning(literal_column("(xmax = 0)").label("inserted"))
     result = db.execute(stmt)

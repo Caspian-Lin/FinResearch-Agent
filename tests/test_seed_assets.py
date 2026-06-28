@@ -33,6 +33,7 @@ TEST_UNIVERSE: list[dict] = [
         "name": "Test Stock Mk1",
         "asset_type": "stock",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
         "symbol": f"{TEST_PREFIX}-ETF",
@@ -40,6 +41,7 @@ TEST_UNIVERSE: list[dict] = [
         "name": "Test ETF Mk1",
         "asset_type": "etf",
         "currency": "USD",
+        "data_source": "yfinance",
     },
     {
         "symbol": f"{TEST_PREFIX}-CN",
@@ -47,6 +49,7 @@ TEST_UNIVERSE: list[dict] = [
         "name": "测试股票一",
         "asset_type": "stock",
         "currency": "CNY",
+        "data_source": "akshare",
     },
 ]
 

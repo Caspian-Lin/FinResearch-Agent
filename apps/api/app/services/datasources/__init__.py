@@ -42,12 +42,48 @@ __all__ = [
 ]
 
 
+def _map_yfinance_symbol(symbol: str) -> str:
+    """Map a canonical exchange-suffixed symbol to yfinance's ticker form.
+
+    yfinance uses bare US tickers, 4-digit ``XXXX.HK`` for HK, and ``.SS``/``.SZ``
+    for A-shares — none of which match our unified convention. This translates:
+
+    * US (``.O``/``.N``/``.A``) → bare ticker (strip suffix).
+    * HK (``.HK``, our 5-digit e.g. ``00700``) → 4-digit ``0700.HK``.
+    * A-shares ``.SH`` → ``.SS`` (yfinance's SSE code); ``.SZ`` unchanged.
+    * BSE ``.BJ`` → raise (yfinance has no BSE coverage; use akshare/tushare).
+
+    A bare symbol with no recognized suffix passes through unchanged (legacy
+    callers that already hold a yfinance-native ticker).
+    """
+    for suf in (".O", ".N", ".A"):
+        if symbol.endswith(suf):
+            return symbol[: -len(suf)]
+    if symbol.endswith(".HK"):
+        code = symbol[: -len(".HK")]
+        return f"{int(code):04d}.HK"
+    if symbol.endswith(".SH"):
+        return symbol[: -len(".SH")] + ".SS"
+    if symbol.endswith(".SZ"):
+        return symbol
+    if symbol.endswith(".BJ"):
+        raise ValueError(
+            f"yfinance has no BSE (Beijing Stock Exchange) coverage for {symbol!r}; "
+            "use the akshare or tushare source instead"
+        )
+    return symbol
+
+
 class YfinanceSource:
     """:class:`DataSource` wrapper over the original :func:`fetch_ohlcv`.
 
-    A pure delegation adapter: it preserves the existing yfinance behavior
+    The adapter first maps ``symbol`` from the unified exchange-suffix convention
+    (FRA-78: ``.SH``/``.SZ``/``.BJ``/``.HK``/``.O``/``.N``/``.A``) to yfinance's
+    native ticker form via :func:`_map_yfinance_symbol`, then delegates to
+    :func:`fetch_ohlcv`. It preserves the existing yfinance behavior
     (auto_adjust=False, raw Close→close, Adj Close→adjusted_close) so routing
-    through the dispatcher changes nothing for yfinance callers.
+    through the dispatcher changes nothing for yfinance callers beyond the symbol
+    translation.
     """
 
     name = "yfinance"
@@ -56,7 +92,9 @@ class YfinanceSource:
         self._retryer = retryer
 
     def fetch_ohlcv(self, symbol: str, start: date, end: date) -> list[OhlcvBar]:
-        return _yf_fetch_ohlcv(symbol, start, end, retryer=self._retryer)
+        return _yf_fetch_ohlcv(
+            _map_yfinance_symbol(symbol), start, end, retryer=self._retryer
+        )
 
 
 # Source key → zero-arg factory. Reading the Tushare token lazily (inside the
