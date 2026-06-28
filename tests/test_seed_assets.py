@@ -137,3 +137,39 @@ def test_seed_empty_universe_is_noop(db_session: Session, monkeypatch) -> None:
     monkeypatch.setattr(seed_mod, "UNIVERSE", [])
     assert seed_mod.seed_assets(db_session) == (0, 0)
     assert _count_assets(db_session) == 0
+
+
+def test_seed_dedups_duplicate_symbol_exchange(db_session: Session, monkeypatch) -> None:
+    """A single INSERT … ON CONFLICT DO UPDATE can't target one row twice
+    (Postgres raises CardinalityViolation); ``_upsert_assets`` dedups on
+    ``(symbol, exchange)`` first. Two rows sharing a key collapse to one row,
+    with the last occurrence winning (mirrors the active-then-delisted feed
+    ordering where a later lower-priority feed overrides).
+    """
+    dup_universe = [
+        {
+            "symbol": f"{TEST_PREFIX}-DUP",
+            "exchange": "NASDAQ",
+            "name": "First",
+            "asset_type": "stock",
+            "currency": "USD",
+            "data_source": "yfinance",
+        },
+        {
+            "symbol": f"{TEST_PREFIX}-DUP",
+            "exchange": "NASDAQ",
+            "name": "Second",
+            "asset_type": "stock",
+            "currency": "USD",
+            "data_source": "yfinance",
+        },
+    ]
+    monkeypatch.setattr(seed_mod, "UNIVERSE", dup_universe)
+
+    inserted, updated = seed_mod.seed_assets(db_session)
+    assert inserted == 1  # deduped to a single row
+    assert updated == 0
+
+    rows = list(db_session.scalars(select(Asset).where(Asset.symbol == f"{TEST_PREFIX}-DUP")))
+    assert len(rows) == 1
+    assert rows[0].name == "Second"  # last occurrence wins
