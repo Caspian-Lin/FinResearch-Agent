@@ -119,9 +119,7 @@ def _map_a_share_symbol(symbol: str) -> str:
     for suffix, prefix in suffix_to_prefix.items():
         if symbol.endswith(suffix):
             return prefix + symbol[: -len(suffix)]
-    raise ValueError(
-        f"akshare adapter supports A-shares only (.SH/.SZ/.BJ suffix); got {symbol!r}"
-    )
+    raise ValueError(f"akshare adapter supports A-shares only (.SH/.SZ/.BJ suffix); got {symbol!r}")
 
 
 def _pick_column(df: pd.DataFrame, candidates: tuple[str, ...]) -> str:

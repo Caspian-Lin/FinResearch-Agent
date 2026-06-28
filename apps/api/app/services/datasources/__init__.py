@@ -92,9 +92,7 @@ class YfinanceSource:
         self._retryer = retryer
 
     def fetch_ohlcv(self, symbol: str, start: date, end: date) -> list[OhlcvBar]:
-        return _yf_fetch_ohlcv(
-            _map_yfinance_symbol(symbol), start, end, retryer=self._retryer
-        )
+        return _yf_fetch_ohlcv(_map_yfinance_symbol(symbol), start, end, retryer=self._retryer)
 
 
 # Source key → zero-arg factory. Reading the Tushare token lazily (inside the

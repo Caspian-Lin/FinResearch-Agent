@@ -340,9 +340,7 @@ def test_yfinance_source_strips_us_suffix(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(ds_mod, "_yf_fetch_ohlcv", _fake_fetch)
 
     # Unified .O suffix → mapped to bare NVDA before reaching _yf_fetch_ohlcv.
-    YfinanceSource().fetch_ohlcv(
-        "NVDA.O", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
-    )
+    YfinanceSource().fetch_ohlcv("NVDA.O", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date())
 
     assert captured["symbol"] == "NVDA"
     assert captured["start"] == datetime(2024, 1, 1).date()

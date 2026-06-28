@@ -119,6 +119,4 @@ def _map_tushare_symbol(symbol: str) -> str:
     """
     if symbol.endswith((".SH", ".SZ", ".BJ")):
         return symbol
-    raise ValueError(
-        f"tushare adapter supports A-shares only (.SH/.SZ/.BJ suffix); got {symbol!r}"
-    )
+    raise ValueError(f"tushare adapter supports A-shares only (.SH/.SZ/.BJ suffix); got {symbol!r}")
