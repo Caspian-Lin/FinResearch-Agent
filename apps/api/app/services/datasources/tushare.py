@@ -69,9 +69,9 @@ class TushareSource:
     def fetch_ohlcv(self, symbol: str, start: date, end: date) -> list[OhlcvBar]:
         """Fetch unadjusted daily A-share bars for ``symbol`` over ``[start, end]``.
 
-        Only A-shares (``.SS``/``.SZ`` suffix) are supported; other symbols raise
-        :class:`ValueError`. An empty result (delisted / pre-IPO window / points
-        gating) returns ``[]``.
+        Only A-shares (``.SH``/``.SZ``/``.BJ`` suffix) are supported; other
+        symbols raise :class:`ValueError`. An empty result (delisted / pre-IPO
+        window / points gating) returns ``[]``.
         """
         ts_code = _map_tushare_symbol(symbol)
         retry: Callable[..., object] = (
@@ -110,14 +110,13 @@ class TushareSource:
 
 
 def _map_tushare_symbol(symbol: str) -> str:
-    """Map a canonical symbol to the Tushare ``ts_code`` form.
+    """Map a canonical A-share symbol to the Tushare ``ts_code`` form.
 
-    ``600519.SS`` → ``600519.SH``; ``000001.SZ`` → ``000001.SZ`` (unchanged).
-    Tushare uses uppercase ``.SH``/``.SZ`` exchange suffixes vs yfinance's
-    ``.SS``. Non-A-share symbols are rejected.
+    ``600519.SH`` / ``000001.SZ`` / ``430017.BJ`` pass through unchanged —
+    Tushare Pro uses uppercase ``.SH``/``.SZ``/``.BJ`` suffixes natively, which
+    matches the unified exchange-suffix convention (FRA-78). Non-A-share symbols
+    are rejected with :class:`ValueError`.
     """
-    if symbol.endswith(".SS"):
-        return symbol[: -len(".SS")] + ".SH"
-    if symbol.endswith(".SZ"):
+    if symbol.endswith((".SH", ".SZ", ".BJ")):
         return symbol
-    raise ValueError(f"tushare adapter supports A-shares only (.SS/.SZ suffix); got {symbol!r}")
+    raise ValueError(f"tushare adapter supports A-shares only (.SH/.SZ/.BJ suffix); got {symbol!r}")

@@ -3,8 +3,9 @@
 AkShare wraps public Eastmoney/Sina pages, so it needs no token and has no
 official rate limit, but it can hit anti-scraping throttling (hence the shared
 retry policy). Coverage is broad (A/H/US/futures/macro); this adapter targets
-A-share daily bars, which is the seed universe it has to serve (symbols carry
-the yfinance ``.SS``/``.SZ`` suffix per FRA-21).
+A-share daily bars, which is the seed universe it has to serve. Symbols follow
+the unified exchange-suffix convention (FRA-78): A-shares carry ``.SH``/``.SZ``
+/``.BJ`` (the legacy yfinance ``.SS`` form is retired).
 
 AkShare is an *optional* dependency (``uv sync --extra data-cn``) and is
 imported lazily inside :meth:`AkshareSource.fetch_ohlcv`, so an environment
@@ -61,9 +62,9 @@ class AkshareSource:
     def fetch_ohlcv(self, symbol: str, start: date, end: date) -> list[OhlcvBar]:
         """Fetch forward-adjusted daily A-share bars for ``symbol``.
 
-        Only A-shares (``.SS``/``.SZ`` suffix) are supported; any other symbol
-        raises :class:`ValueError` rather than silently returning no data, since
-        that signals a caller/source mismatch. An empty result (delisted /
+        Only A-shares (``.SH``/``.SZ``/``.BJ`` suffix) are supported; any other
+        symbol raises :class:`ValueError` rather than silently returning no data,
+        since that signals a caller/source mismatch. An empty result (delisted /
         pre-IPO window) returns ``[]`` without raising.
         """
         ak_sym = _map_a_share_symbol(symbol)
@@ -106,17 +107,19 @@ class AkshareSource:
 
 
 def _map_a_share_symbol(symbol: str) -> str:
-    """Map a canonical symbol to the AkShare code form.
+    """Map a canonical A-share symbol to the AkShare ``sh/sz/bj`` code form.
 
-    ``600519.SS`` → ``sh600519``; ``000001.SZ`` → ``sz000001``. The suffix
-    encodes the exchange (SSE→sh, SZSE→sz) exactly as the seed universe (FRA-21)
-    stores them. Non-A-share symbols are rejected with :class:`ValueError`.
+    ``600519.SH`` → ``sh600519``; ``000001.SZ`` → ``sz000001``;
+    ``430017.BJ`` → ``bj430017``. The suffix encodes the exchange (SSE→sh,
+    SZSE→sz, BSE→bj) per the unified exchange-suffix convention (FRA-78, which
+    retires the legacy yfinance ``.SS`` form). Non-A-share symbols are rejected
+    with :class:`ValueError`.
     """
-    if symbol.endswith(".SS"):
-        return "sh" + symbol[: -len(".SS")]
-    if symbol.endswith(".SZ"):
-        return "sz" + symbol[: -len(".SZ")]
-    raise ValueError(f"akshare adapter supports A-shares only (.SS/.SZ suffix); got {symbol!r}")
+    suffix_to_prefix = {".SH": "sh", ".SZ": "sz", ".BJ": "bj"}
+    for suffix, prefix in suffix_to_prefix.items():
+        if symbol.endswith(suffix):
+            return prefix + symbol[: -len(suffix)]
+    raise ValueError(f"akshare adapter supports A-shares only (.SH/.SZ/.BJ suffix); got {symbol!r}")
 
 
 def _pick_column(df: pd.DataFrame, candidates: tuple[str, ...]) -> str:

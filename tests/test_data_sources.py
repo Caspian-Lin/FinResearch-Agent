@@ -26,6 +26,7 @@ from app.services.datasources import (
     AkshareSource,
     TushareSource,
     YfinanceSource,
+    _map_yfinance_symbol,
     get_data_source,
 )
 from app.services.datasources.akshare import _map_a_share_symbol
@@ -76,9 +77,10 @@ def test_get_data_source_tushare_without_token_raises(monkeypatch: pytest.Monkey
 # ---------------------------------------------------------------------------
 
 
-def test_map_a_share_symbol_ss_to_sh_prefix() -> None:
-    assert _map_a_share_symbol("600519.SS") == "sh600519"
+def test_map_a_share_symbol_sh_sz_bj_prefix() -> None:
+    assert _map_a_share_symbol("600519.SH") == "sh600519"
     assert _map_a_share_symbol("000001.SZ") == "sz000001"
+    assert _map_a_share_symbol("430017.BJ") == "bj430017"
 
 
 def test_map_a_share_symbol_rejects_non_a_share() -> None:
@@ -86,9 +88,10 @@ def test_map_a_share_symbol_rejects_non_a_share() -> None:
         _map_a_share_symbol("AAPL")
 
 
-def test_map_tushare_symbol_ss_to_sh_suffix() -> None:
-    assert _map_tushare_symbol("600519.SS") == "600519.SH"
+def test_map_tushare_symbol_sh_sz_bj_suffix() -> None:
+    assert _map_tushare_symbol("600519.SH") == "600519.SH"
     assert _map_tushare_symbol("000001.SZ") == "000001.SZ"
+    assert _map_tushare_symbol("430017.BJ") == "430017.BJ"
 
 
 def test_map_tushare_symbol_rejects_non_a_share() -> None:
@@ -137,10 +140,10 @@ def test_akshare_fetch_maps_chinese_columns_and_symbol(
     monkeypatch.setitem(sys.modules, "akshare", SimpleNamespace(stock_zh_a_hist=_stock_zh_a_hist))
 
     bars = AkshareSource().fetch_ohlcv(
-        "600519.SS", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
+        "600519.SH", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
     )
 
-    # the adapter mapped .SS → sh prefix and passed qfq adjustment + YYYYMMDD dates
+    # the adapter mapped .SH → sh prefix and passed qfq adjustment + YYYYMMDD dates
     assert captured["symbol"] == "sh600519"
     assert captured["adjust"] == "qfq"
     assert captured["start_date"] == "20240101"
@@ -163,7 +166,7 @@ def test_akshare_fetch_empty_frame_returns_empty(monkeypatch: pytest.MonkeyPatch
         sys.modules, "akshare", SimpleNamespace(stock_zh_a_hist=lambda **kw: pd.DataFrame())
     )
     bars = AkshareSource().fetch_ohlcv(
-        "600519.SS", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
+        "600519.SH", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
     )
     assert bars == []
 
@@ -261,10 +264,10 @@ def test_tushare_fetch_maps_pro_daily_and_symbol(monkeypatch: pytest.MonkeyPatch
     pro = _install_fake_tushare(monkeypatch, df)
 
     bars = TushareSource(token="fake-token").fetch_ohlcv(
-        "600519.SS", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
+        "600519.SH", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
     )
 
-    # the adapter mapped .SS → .SH and passed YYYYMMDD date bounds
+    # the adapter passed .SH through verbatim and passed YYYYMMDD date bounds
     assert pro.calls[0]["ts_code"] == "600519.SH"
     assert pro.calls[0]["start_date"] == "20240101"
     assert pro.calls[0]["end_date"] == "20240105"
@@ -284,7 +287,7 @@ def test_tushare_fetch_maps_pro_daily_and_symbol(monkeypatch: pytest.MonkeyPatch
 def test_tushare_fetch_empty_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     _install_fake_tushare(monkeypatch, pd.DataFrame())
     bars = TushareSource(token="fake-token").fetch_ohlcv(
-        "600519.SS", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
+        "600519.SH", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date()
     )
     assert bars == []
 
@@ -298,12 +301,59 @@ def test_tushare_fetch_non_a_share_raises(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 # ---------------------------------------------------------------------------
-# YfinanceSource — pure delegation wrapper (FRA-23)
+# YfinanceSource — pure delegation wrapper with symbol mapping (FRA-23, FRA-78)
 # ---------------------------------------------------------------------------
 
 
+def test_map_yfinance_symbol() -> None:
+    """Unified suffix convention → yfinance-native ticker form (FRA-78)."""
+    # US exchange suffixes are stripped to bare tickers.
+    assert _map_yfinance_symbol("AAPL.O") == "AAPL"
+    assert _map_yfinance_symbol("JPM.N") == "JPM"
+    assert _map_yfinance_symbol("SPY.A") == "SPY"
+    # HK 5-digit → 4-digit (leading zero dropped by int parse, zero-padded).
+    assert _map_yfinance_symbol("00700.HK") == "0700.HK"
+    # A-shares: .SH → .SS (yfinance's SSE code); .SZ passes through.
+    assert _map_yfinance_symbol("600519.SH") == "600519.SS"
+    assert _map_yfinance_symbol("000001.SZ") == "000001.SZ"
+    # Bare symbols with no recognized suffix pass through unchanged (legacy
+    # callers holding an already-native yfinance ticker).
+    assert _map_yfinance_symbol("TSLA") == "TSLA"
+
+
+def test_map_yfinance_symbol_rejects_bse() -> None:
+    """yfinance has no BSE coverage; .BJ is rejected with a clear error."""
+    with pytest.raises(ValueError, match="BSE"):
+        _map_yfinance_symbol("430017.BJ")
+
+
+def test_yfinance_source_strips_us_suffix(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The wrapper maps the unified symbol before delegating (FRA-78)."""
+    captured: dict[str, object] = {}
+
+    def _fake_fetch(symbol: str, start: object, end: object, retryer: object = None) -> list:
+        captured.update(symbol=symbol, start=start, end=end, retryer=retryer)
+        return []
+
+    import app.services.datasources as ds_mod
+
+    monkeypatch.setattr(ds_mod, "_yf_fetch_ohlcv", _fake_fetch)
+
+    # Unified .O suffix → mapped to bare NVDA before reaching _yf_fetch_ohlcv.
+    YfinanceSource().fetch_ohlcv("NVDA.O", datetime(2024, 1, 1).date(), datetime(2024, 1, 5).date())
+
+    assert captured["symbol"] == "NVDA"
+    assert captured["start"] == datetime(2024, 1, 1).date()
+    assert captured["end"] == datetime(2024, 1, 5).date()
+
+
 def test_yfinance_source_delegates_to_fetch_ohlcv(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The adapter is a thin wrapper; it forwards (symbol, start, end, retryer)."""
+    """The adapter is a thin wrapper; it forwards (symbol, start, end, retryer).
+
+    A bare symbol with no recognized suffix passes through the mapper
+    unchanged, so legacy callers handing in a native yfinance ticker are
+    unaffected.
+    """
     captured: dict[str, object] = {}
 
     def _fake_fetch(symbol: str, start: object, end: object, retryer: object = None) -> list:
