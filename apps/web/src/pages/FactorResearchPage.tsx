@@ -49,6 +49,7 @@ import { useWatchlists } from '@/hooks/useWatchlists';
 import { PreflightSyncModal, type MissingAsset } from '@/components/backtest/PreflightSyncModal';
 import { FactorChart } from '@/components/factor/FactorChart';
 import { FactorConfigForm } from '@/components/factor/FactorConfigForm';
+import { FactorReportPanel } from '@/components/factor/FactorReportPanel';
 import { factorTypeOf, type FactorFormValues } from '@/components/factor/factorMeta';
 import { ICSummaryCards } from '@/components/factor/ICSummaryCards';
 import { buildHeatmapOption } from '@/components/factor/heatmapOption';
@@ -71,10 +72,12 @@ const POLL_INTERVAL_MS = 1500;
 const MAX_POLLS = 120;
 /** Forward-return horizon (days) for the IC evaluation. */
 const HORIZON = 5;
+/** Cost bands (bps) swept by the sensitivity action and bound to the report (FRA-77). */
+const COST_BANDS = [0, 5, 10, 25] as const;
 /** Coverage below which the preflight flags an asset as needing sync (FRA-43). */
 const COVERAGE_THRESHOLD = 0.9;
 
-type Tab = 'ic' | 'ranking' | 'quantile' | 'sensitivity';
+type Tab = 'ic' | 'ranking' | 'quantile' | 'sensitivity' | 'report';
 type Phase = 'idle' | 'polling' | 'success' | 'failed' | 'timeout';
 
 function FactorResearchPage() {
@@ -105,6 +108,11 @@ function FactorResearchPage() {
   const [sPhase, setSPhase] = useState<Phase>('idle');
   const [sResult, setSResult] = useState<SensitivitySummary | null>(null);
   const [sError, setSError] = useState<string | null>(null);
+
+  // Last submitted config — bound to the report tab (FRA-77). Captured whenever
+  // a research action actually runs, so the report always reflects the current
+  // parameters rather than a stale or never-run configuration.
+  const [lastConfig, setLastConfig] = useState<FactorFormValues | null>(null);
 
   // FRA-43 preflight: assets flagged as needing sync before compute runs.
   const [preflightMissing, setPreflightMissing] = useState<MissingAsset[]>([]);
@@ -289,7 +297,7 @@ function FactorResearchPage() {
           factors: [ftype],
           top_ks: [1, 3],
           rebalances: ['daily'],
-          cost_bands: [0, 5, 10, 25],
+          cost_bands: [...COST_BANDS],
         });
         messageApi.info(t('factor:run.triggered'));
         startPolling(enq.run_id, 'sweep');
@@ -305,6 +313,9 @@ function FactorResearchPage() {
 
   const handleSubmit = useCallback(
     async (v: FactorFormValues) => {
+      // The report tab is a read-only summary of already-run research; Run has
+      // no action there (switch to IC / Quantile / Sensitivity to compute).
+      if (activeTab === 'report') return;
       if (v.universe.length === 0) {
         messageApi.error(t('errors:validation'));
         return;
@@ -351,6 +362,7 @@ function FactorResearchPage() {
           setPreflightWindow({ source: v.source, start: v.start, end: v.end });
           return;
         }
+        setLastConfig(v);
         if (activeTab === 'ic') void runIC(v);
         else if (activeTab === 'ranking') void runRankingSnapshot(v);
         else if (activeTab === 'quantile') void runQuantile(v);
@@ -673,6 +685,32 @@ function FactorResearchPage() {
                     </Col>
                   )}
                 </Row>
+              ),
+            },
+            {
+              key: 'report',
+              label: t('factor:tabs.report'),
+              children: (
+                <FactorReportPanel
+                  config={
+                    lastConfig
+                      ? {
+                          factor: lastConfig.factor,
+                          source: lastConfig.source,
+                          start: lastConfig.start,
+                          end: lastConfig.end,
+                          universeSize: lastConfig.universe.length,
+                          priceField: lastConfig.priceField,
+                          nQuantiles: lastConfig.nQuantiles,
+                          horizon: HORIZON,
+                          costBands: [...COST_BANDS],
+                        }
+                      : null
+                  }
+                  icResult={icResult}
+                  qResult={qResult}
+                  sResult={sResult}
+                />
               ),
             },
           ]}
