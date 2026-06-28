@@ -305,3 +305,34 @@ def test_unsupported_exchange_returns_422(client: TestClient, db_session: Sessio
         params={"source": "yfinance", "start": WINDOW_START, "end": WINDOW_END},
     )
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# A-share / HK calendars (FRA-79 universe)
+# Regression: EXCHANGE_CALENDAR_MAP previously listed only US exchanges, so
+# every SSE/SZSE/BSE/HKEX quality query 422'd with "no trading calendar".
+# ---------------------------------------------------------------------------
+
+
+def test_szse_a_share_has_calendar(client: TestClient, db_session: Session) -> None:
+    """SZSE maps to the XSHG calendar; quality returns 200, not 422."""
+    asset = _make_asset(db_session, "FRA9TEST-SZSE", exchange="SZSE")
+    _insert_bar(db_session, asset.id, date(2024, 1, 2), source="akshare")
+    resp = client.get(
+        f"/quality/{asset.id}",
+        params={"source": "akshare", "start": WINDOW_START, "end": WINDOW_END},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["expected_sessions"] > 0
+
+
+def test_hkex_has_calendar(client: TestClient, db_session: Session) -> None:
+    """HKEX maps to XHKG; quality returns 200, not 422."""
+    asset = _make_asset(db_session, "FRA9TEST-HKEX", exchange="HKEX")
+    _insert_bar(db_session, asset.id, date(2024, 1, 2), source="yfinance")
+    resp = client.get(
+        f"/quality/{asset.id}",
+        params={"source": "yfinance", "start": WINDOW_START, "end": WINDOW_END},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["expected_sessions"] > 0
