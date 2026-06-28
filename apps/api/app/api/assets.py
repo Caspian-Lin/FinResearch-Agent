@@ -20,7 +20,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,16 @@ LimitParam = Annotated[int, Query(ge=1, le=500)]
 OffsetParam = Annotated[int, Query(ge=0)]
 SymbolParam = Annotated[str | None, Query(description="Exact symbol match (case-insensitive)")]
 ExchangeParam = Annotated[str | None, Query(description="Exact exchange match (case-insensitive)")]
+NameParam = Annotated[str | None, Query(description="Case-insensitive partial match on asset name")]
+SourceParam = Annotated[
+    str | None, Query(description="Exact data_source match (yfinance/akshare/tushare)")
+]
+ExchangesParam = Annotated[
+    list[str] | None, Query(description="Multi-select exchange match (any of)")
+]
+KeywordParam = Annotated[
+    str | None, Query(description="Case-insensitive partial match on symbol OR name")
+]
 
 
 def _normalize_symbol(value: str) -> str:
@@ -102,24 +112,47 @@ def list_assets(
     db: DBSession,
     symbol: SymbolParam = None,
     exchange: ExchangeParam = None,
+    name: NameParam = None,
+    source: SourceParam = None,
+    exchanges: ExchangesParam = None,
+    keyword: KeywordParam = None,
     limit: LimitParam = 50,
     offset: OffsetParam = 0,
 ) -> dict[str, object]:
-    """List assets with optional ``symbol``/``exchange`` filters and pagination.
+    """List assets with optional filters and stable pagination.
+
+    Filters compose with AND:
+
+    * ``symbol`` / ``exchange`` — exact, case-insensitive (legacy params).
+    * ``exchanges`` — multi-select exchange match (any of the set), for the
+      frontend's exchange multi-picker.
+    * ``name`` — case-insensitive partial match on the asset name.
+    * ``source`` — exact ``data_source`` match (yfinance/akshare/tushare).
+    * ``keyword`` — case-insensitive partial match on symbol *or* name, for
+      the frontend's single "code or name" search box.
 
     Ordering is deterministic ``(symbol, exchange, id)`` so paging is stable.
     """
     stmt = select(Asset).order_by(Asset.symbol, Asset.exchange, Asset.id)
     count_stmt = select(func.count()).select_from(Asset)
 
+    conditions = []
     if symbol is not None:
-        normalized_symbol = _normalize_symbol(symbol)
-        stmt = stmt.where(Asset.symbol == normalized_symbol)
-        count_stmt = count_stmt.where(Asset.symbol == normalized_symbol)
+        conditions.append(Asset.symbol == _normalize_symbol(symbol))
     if exchange is not None:
-        normalized_exchange = _normalize_exchange(exchange)
-        stmt = stmt.where(Asset.exchange == normalized_exchange)
-        count_stmt = count_stmt.where(Asset.exchange == normalized_exchange)
+        conditions.append(Asset.exchange == _normalize_exchange(exchange))
+    if exchanges:
+        conditions.append(Asset.exchange.in_([_normalize_exchange(e) for e in exchanges]))
+    if name is not None:
+        conditions.append(Asset.name.ilike(f"%{name}%"))
+    if source is not None:
+        conditions.append(Asset.data_source == source.strip().lower())
+    if keyword is not None:
+        conditions.append(or_(Asset.symbol.ilike(f"%{keyword}%"), Asset.name.ilike(f"%{keyword}%")))
+
+    if conditions:
+        stmt = stmt.where(*conditions)
+        count_stmt = count_stmt.where(*conditions)
 
     total = int(db.scalar(count_stmt) or 0)
     items = list(db.scalars(stmt.limit(limit).offset(offset)).unique())

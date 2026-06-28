@@ -78,6 +78,7 @@ def _build_watchlist_read(db: Session, watchlist: Watchlist) -> WatchlistRead:
             symbol=asset.symbol,
             exchange=asset.exchange,
             name=asset.name,
+            data_source=asset.data_source,
             added_at=item.added_at,
         )
         for item, asset in rows

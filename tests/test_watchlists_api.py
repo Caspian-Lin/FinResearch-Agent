@@ -425,6 +425,9 @@ def test_items_include_asset_details(client: TestClient) -> None:
         assert item["symbol"].startswith("FRA10TEST-DET")
         assert item["exchange"] == "NASDAQ"
         assert item["name"].startswith("Name FRA10TEST-DET")
+        # data_source is hydrated from the joined asset (FRA-80); create_asset
+        # leaves it at the model default yfinance.
+        assert item["data_source"] == "yfinance"
         assert item["added_at"]
 
 

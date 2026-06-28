@@ -40,6 +40,7 @@ class WatchlistItemRead(BaseModel):
     symbol: str
     exchange: str
     name: str
+    data_source: str
     added_at: datetime
 
 
