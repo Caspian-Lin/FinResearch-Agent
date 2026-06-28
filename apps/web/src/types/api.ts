@@ -6,7 +6,12 @@
  * at the view layer via dayjs.
  */
 
-/** A single asset (FRA-7 `AssetRead`). */
+/**
+ * A single asset (FRA-7 `AssetRead`).
+ *
+ * `data_source` is the originating provider (yfinance / akshare / tushare) and
+ * `list_status` is its tradable/listing status — both added by FRA-78.
+ */
 export interface AssetRead {
   asset_id: string;
   symbol: string;
@@ -14,15 +19,23 @@ export interface AssetRead {
   exchange: string;
   asset_type: string;
   currency: string;
+  data_source: string;
+  list_status: string;
   created_at: string;
 }
 
-/** A row inside a watchlist (FRA-10 `WatchlistItemRead`). */
+/**
+ * A row inside a watchlist (FRA-10 `WatchlistItemRead`).
+ *
+ * `data_source` (added by FRA-80) mirrors the underlying asset's provider so
+ * the watchlist table can show where each row's data comes from.
+ */
 export interface WatchlistItemRead {
   asset_id: string;
   symbol: string;
   exchange: string;
   name: string;
+  data_source: string;
   added_at: string;
 }
 

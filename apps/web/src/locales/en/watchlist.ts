@@ -22,6 +22,7 @@ const watchlist = {
     currency: 'Currency',
     updatedAt: 'Updated',
     exchange: 'Exchange',
+    source: 'Data source',
     addedAt: 'Added',
     actions: 'Actions',
   },
@@ -91,6 +92,18 @@ const watchlist = {
       exchange: {
         label: 'Exchange (optional)',
         placeholder: 'e.g. NASDAQ',
+      },
+      keyword: {
+        label: 'Keyword',
+        placeholder: 'e.g. AAPL or Apple',
+      },
+      exchangeMulti: {
+        label: 'Exchange (optional)',
+        placeholder: 'Select exchanges',
+      },
+      source: {
+        label: 'Data source (optional)',
+        placeholder: 'All sources',
       },
     },
     search: {
