@@ -24,13 +24,29 @@ Week 1 已实现的表(见 `init_week1_schema` 迁移):
 | watchlist_items | `(watchlist_id, asset_id)` | 自选池与资产多对多 |
 | ohlcv | `(asset_id, time, source)` | OHLCV 行情,TimescaleDB hypertable |
 | factor_values | `(asset_id, factor_name, time, source)` | 因子值时序,TimescaleDB hypertable |
+| news_items | `id UUID` | 新闻标题/摘要;`UNIQUE(asset_id, source, published_at, headline_hash)` |
+| sentiment_scores | `id UUID` | classifier 情绪分;`UNIQUE(news_item_id, model_name)` |
 
 后续 issue 实现的表:`data_sync_jobs`、`data_quality_reports`、
 `research_memos`。`backtest_runs`、`backtest_metrics`、`equity_curve`、`trades`
 已在 Week 2 migration 中实现;`factor_values` 已在 FRA-48 中实现。Week 3 给
 `backtest_runs` 加了 `run_kind`(`backtest` / `sensitivity` / `factor_sensitivity` /
 `factor_compute` / `factor_quantile` / `factor_sweep`,FRA-35/54/57)与
-`result_json`(因子 worker 异步 job 的结构化结果,FRA-57)两列。
+`result_json`(因子 worker 异步 job 的结构化结果,FRA-57)两列。Week 4 加了
+`news_items` 与 `sentiment_scores`(FRA-66):前者持久化新闻标题/摘要,后者持久化
+classifier 情绪分,均以 `asset_id` 外键关联到 `assets`。
+
+### 文本与 sentiment 时间口径(Week 4 / FRA-66)
+
+`news_items.published_at` 与 `sentiment_scores.published_at` 是文本信号的**最早可用
+时间**(anti-cheat,与 FRA-65 契约一致):下游因子聚合只能把一条 sentiment 映射到
+`published_at` 当天或之后的交易决策日,不得映射回更早交易日。`sentiment_scores.score`
+归一到 `[-1, 1]`(负=bearish、0=neutral、正=bullish),`confidence` 归一到 `[0, 1]`,
+`label ∈ {positive, neutral, negative}`;classifier 复现元数据(`model_name` /
+`prompt_version` / 参数快照)存 `params`(JSONB),原始 provider/model 响应存
+`raw_response`(JSONB)。两者为**普通关系表**(非 TimescaleDB hypertable)——news/
+sentiment 是稀疏事件流,非 ohlcv / factor_values 那种连续追加时序;`headline_hash`
+(sha256(headline))支撑内容去重,使重复抓取幂等。
 
 ## Identity & Keys
 
