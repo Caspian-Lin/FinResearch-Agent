@@ -203,3 +203,59 @@ export interface FactorRankingSnapshot {
   total: number;
   config_snapshot: Record<string, unknown>;
 }
+
+// ─── Financial text sentiment(Week 4,FRA-65)────────────────────────────────
+// 与后端 app/services/sentiment 契约一一对应,供后续 schema / API client / 前端复用。
+
+/** 情绪分类标签,对齐后端 SentimentLabel */
+export type SentimentLabel = 'positive' | 'neutral' | 'negative';
+
+/** 单条新闻标题/摘要,对齐后端 NewsItem */
+export interface NewsItem {
+  asset_id: string;
+  /** ISO 8601 publication timestamp;信号最早只能在该时间之后使用 */
+  published_at: string;
+  source: string;
+  headline: string;
+  summary?: string | null;
+  url?: string | null;
+  params: Record<string, unknown>;
+}
+
+/** 单条文本的分类结果,对齐后端 SentimentScore */
+export interface SentimentScore {
+  asset_id: string;
+  /** ISO 8601 publication timestamp;不得映射到更早交易日 */
+  published_at: string;
+  source: string;
+  headline: string;
+  summary?: string | null;
+  url?: string | null;
+  model_name: string;
+  prompt_version: string;
+  label: SentimentLabel;
+  /** 归一化到 [-1,1],负值 bearish,正值 bullish */
+  score: number;
+  /** 归一化到 [0,1] */
+  confidence: number;
+  raw_response?: Record<string, unknown> | null;
+  params: Record<string, unknown>;
+}
+
+/** 某资产某决策日的情绪聚合,对齐后端 SentimentSummary */
+export interface SentimentSummary {
+  asset_id: string;
+  /** ISO 8601,UTC 午夜;不早于聚合窗口内文本的 published_at */
+  signal_date: string;
+  window_start: string;
+  window_end: string;
+  model_name: string;
+  prompt_version: string;
+  /** news_count 为 0 时保持 null,不得 forward-fill */
+  score: number | null;
+  confidence: number | null;
+  news_count: number;
+  label_counts: Record<SentimentLabel, number>;
+  source: string;
+  params: Record<string, unknown>;
+}
