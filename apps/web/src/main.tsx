@@ -21,6 +21,7 @@ import RegisterPage from '@/pages/RegisterPage';
 import WatchlistPage from '@/pages/WatchlistPage';
 import DashboardPage from '@/pages/DashboardPage';
 import BacktestPage from '@/pages/BacktestPage';
+import BacktestHistoryPage from '@/pages/BacktestHistoryPage';
 import FactorResearchPage from '@/pages/FactorResearchPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
@@ -40,6 +41,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/watchlist" element={<WatchlistPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/backtest" element={<BacktestPage />} />
+            <Route path="/backtest/history" element={<BacktestHistoryPage />} />
+            <Route path="/backtest/history/:runId" element={<BacktestHistoryPage />} />
             <Route path="/factor-research" element={<FactorResearchPage />} />
           </Route>
 

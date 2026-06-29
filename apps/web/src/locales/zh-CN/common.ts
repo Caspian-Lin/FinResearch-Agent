@@ -15,7 +15,8 @@ const common = {
   nav: {
     dashboard: '仪表盘',
     watchlist: '观察列表',
-    backtests: '回测',
+    newBacktest: '新建回测',
+    backtestHistory: '历史回测',
     factorResearch: '因子研究',
     memos: '研报备忘',
     settings: '设置',
