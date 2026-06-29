@@ -109,10 +109,17 @@ const backtest = {
   history: {
     title: 'Recent runs',
     empty: 'No past runs.',
+    open: 'View history',
     run: 'Run',
     strategy: 'Strategy',
     status: 'Status',
     created: 'Created',
+  },
+
+  historyPage: {
+    title: 'Backtest History',
+    description: 'Review previous runs and inspect metrics, curves, and trade details.',
+    empty: 'Select a backtest run from the history list.',
   },
 
   preflight: {

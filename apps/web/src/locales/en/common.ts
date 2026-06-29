@@ -17,7 +17,8 @@ const common = {
   nav: {
     dashboard: 'Dashboard',
     watchlist: 'Watchlist',
-    backtests: 'Backtests',
+    newBacktest: 'New Backtest',
+    backtestHistory: 'Backtest History',
     factorResearch: 'Factor Research',
     memos: 'Research Memos',
     settings: 'Settings',

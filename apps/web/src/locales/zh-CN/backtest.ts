@@ -107,10 +107,17 @@ const backtest = {
   history: {
     title: '最近回测',
     empty: '暂无历史回测。',
+    open: '查看历史',
     run: '回测',
     strategy: '策略',
     status: '状态',
     created: '创建时间',
+  },
+
+  historyPage: {
+    title: '历史回测',
+    description: '查看过往回测,检查指标、曲线与交易明细。',
+    empty: '从历史列表中选择一个回测。',
   },
 
   preflight: {
