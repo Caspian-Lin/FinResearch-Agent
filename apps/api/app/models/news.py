@@ -92,12 +92,8 @@ class SentimentScore(Base):
 
     __tablename__ = "sentiment_scores"
     __table_args__ = (
-        UniqueConstraint(
-            "news_item_id", "model_name", name="uq_sentiment_scores_news_model"
-        ),
-        Index(
-            "ix_sentiment_scores_model_name_published_at", "model_name", "published_at"
-        ),
+        UniqueConstraint("news_item_id", "model_name", name="uq_sentiment_scores_news_model"),
+        Index("ix_sentiment_scores_model_name_published_at", "model_name", "published_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

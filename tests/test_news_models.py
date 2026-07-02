@@ -228,14 +228,7 @@ def test_news_item_unique_constraint_dedup(db_session: Session) -> None:
     db_session.add(NewsItem(**_news_values(asset, ts, "AAPL surges on earnings")))
     db_session.add(NewsItem(**_news_values(asset, ts, "AAPL slides after downgrade")))
     db_session.commit()
-    assert (
-        len(
-            db_session.scalars(
-                select(NewsItem).where(NewsItem.asset_id == asset.id)
-            ).all()
-        )
-        == 2
-    )
+    assert len(db_session.scalars(select(NewsItem).where(NewsItem.asset_id == asset.id)).all()) == 2
 
     # Same (asset, source, time, headline_hash) → violates the unique constraint.
     # Core insert bypasses the session identity map (an ORM add would raise a
