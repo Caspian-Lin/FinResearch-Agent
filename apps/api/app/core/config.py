@@ -114,6 +114,16 @@ class Settings(BaseSettings):
     news_max_items_per_asset: int = Field(default=100, alias="NEWS_MAX_ITEMS_PER_ASSET")
     news_sync_max_window_days: int = Field(default=30, alias="NEWS_SYNC_MAX_WINDOW_DAYS")
 
+    # Sentiment classifier (FRA-68). Selects the classifier adapter; "fixture"
+    # is a deterministic keyword-rule classifier (default, no LLM/network, so
+    # tests/demo stay offline and reproducible). "openai" calls an
+    # OpenAI-compatible chat completions endpoint via httpx and requires
+    # OPENAI_API_KEY — gated by this switch so the default path needs no key.
+    sentiment_classifier: str = Field(default="fixture", alias="SENTIMENT_CLASSIFIER")
+    sentiment_temperature: float = Field(default=0.0, alias="SENTIMENT_TEMPERATURE")
+    sentiment_classify_batch_size: int = Field(default=10, alias="SENTIMENT_CLASSIFY_BATCH_SIZE")
+    sentiment_classify_max_items: int = Field(default=200, alias="SENTIMENT_CLASSIFY_MAX_ITEMS")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
