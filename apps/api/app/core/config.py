@@ -105,6 +105,15 @@ class Settings(BaseSettings):
     rq_queue_data: str = Field(default="data_sync", alias="RQ_QUEUE_DATA")
     rq_queue_backtest: str = Field(default="backtest", alias="RQ_QUEUE_BACKTEST")
 
+    # Sentiment / News (FRA-67). The news provider key selects an adapter from
+    # the sentiment/providers registry; "fixture" ships sample data so tests and
+    # the Week-4 demo never touch the network. Limits guard against runaway
+    # fetches from the volatile text sources this milestone warned about.
+    news_provider: str = Field(default="fixture", alias="NEWS_PROVIDER")
+    news_fetch_timeout_seconds: int = Field(default=30, alias="NEWS_FETCH_TIMEOUT_SECONDS")
+    news_max_items_per_asset: int = Field(default=100, alias="NEWS_MAX_ITEMS_PER_ASSET")
+    news_sync_max_window_days: int = Field(default=30, alias="NEWS_SYNC_MAX_WINDOW_DAYS")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
