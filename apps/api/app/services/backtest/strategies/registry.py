@@ -16,10 +16,13 @@ from app.services.backtest.strategies import (
     MACrossoverStrategy,
     MomentumStrategy,
     ReversalStrategy,
+    SentimentTechStrategy,
 )
 
 #: 策略名 → 构造类。``config_json.strategy_name`` 必须命中其一;参数取自
 #: ``config_json.strategy_params``(如 fast/slow、lookback/top_k,或 factor/window)。
+#: ``sentiment_tech`` 可经 registry 构造(纯技术模式,sentiment_frame=None);
+#: 完整 sentiment 融合由 FRA-71 comparison runner 直接构造。
 _REGISTRY: dict[str, type] = {
     "buy_hold": BuyAndHoldStrategy,
     "equal_weight": EqualWeightStrategy,
@@ -27,6 +30,7 @@ _REGISTRY: dict[str, type] = {
     "ma_crossover": MACrossoverStrategy,
     "momentum": MomentumStrategy,
     "reversal": ReversalStrategy,
+    "sentiment_tech": SentimentTechStrategy,
 }
 
 
