@@ -52,6 +52,9 @@ RUN_KINDS = (
     "factor_compute",
     "factor_quantile",
     "factor_sweep",
+    "sentiment_sync_news",
+    "sentiment_classify",
+    "sentiment_factor",
 )
 
 

@@ -1,8 +1,13 @@
-"""Sentiment RQ tasks (FRA-67, FRA-68, FRA-69) — thin wrappers.
+"""Sentiment RQ tasks (FRA-67, FRA-68, FRA-69, FRA-70) — thin wrappers.
 
 核心执行逻辑在 ``app.services.sentiment.ingest`` / ``classify`` / ``service``
-(service 层,API / 测试可直接调,免 import worker 包)。本模块是 RQ 入口:worker
-按 dotted path ``worker.tasks.sentiment.*`` 解析调度。
+/ ``jobs`` (service 层,API / 测试可直接调,免 import worker 包)。本模块是 RQ
+入口:worker 按 dotted path ``worker.tasks.sentiment.*`` 解析调度。
+
+两类入口:
+* **直接调用**(FRA-67/68/69)— 参数为原生类型(strings),service 层自建 session。
+* **BacktestRun 状态机**(FRA-70)— 参数为 ``run_id`` 字符串,service 层
+  ``jobs.py`` 维护 pending → running → success/failed,结果写入 ``result_json``。
 
 复用 ``data_sync`` 队列(``worker/main.py`` 已监听)—— news 抓取、分类与因子
 计算同属数据采集,同一 worker 进程即可,无需独立队列。
@@ -21,6 +26,11 @@ from typing import Any
 from app.db.session import SessionLocal
 from app.services.sentiment.classify import classify_news_items as _classify_news_items
 from app.services.sentiment.ingest import sync_news as _sync_news
+from app.services.sentiment.jobs import (
+    execute_sentiment_classify,
+    execute_sentiment_factor,
+    execute_sentiment_sync_news,
+)
 from app.services.sentiment.service import compute_and_store_sentiment_factor as _compute_factor
 
 
@@ -103,3 +113,35 @@ def compute_sentiment_factor(
         )
     finally:
         db.close()
+
+
+# ---------------------------------------------------------------------------
+# FRA-70: BacktestRun 状态机入口(接收 run_id,维护 pending → success/failed)
+# ---------------------------------------------------------------------------
+
+
+def run_sentiment_sync_news_job(run_id: str) -> dict[str, Any]:
+    """RQ 入口(状态机版):抓取新闻 → 幂等写入 ``news_items`` → 结果写 ``result_json``。
+
+    Args:
+        run_id: ``BacktestRun(run_kind='sentiment_sync_news')`` UUID 字符串。
+    """
+    return execute_sentiment_sync_news(run_id)
+
+
+def run_sentiment_classify_job(run_id: str) -> dict[str, Any]:
+    """RQ 入口(状态机版):批量分类 → 幂等写入 ``sentiment_scores`` → 结果写 ``result_json``。
+
+    Args:
+        run_id: ``BacktestRun(run_kind='sentiment_classify')`` UUID 字符串。
+    """
+    return execute_sentiment_classify(run_id)
+
+
+def run_sentiment_factor_job(run_id: str) -> dict[str, Any]:
+    """RQ 入口(状态机版):构建日频因子 → 写入 ``factor_values`` → 结果写 ``result_json``。
+
+    Args:
+        run_id: ``BacktestRun(run_kind='sentiment_factor')`` UUID 字符串。
+    """
+    return execute_sentiment_factor(run_id)
