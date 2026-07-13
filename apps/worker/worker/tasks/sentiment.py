@@ -1,12 +1,11 @@
-"""Sentiment RQ tasks (FRA-67, FRA-68) — thin wrappers.
+"""Sentiment RQ tasks (FRA-67, FRA-68, FRA-69) — thin wrappers.
 
-核心执行逻辑在 ``app.services.sentiment.ingest`` / ``classify``(service 层,
-API / 测试可直接调,免 import worker 包)。本模块是 RQ 入口:worker 按 dotted
-path ``worker.tasks.sentiment.sync_news`` / ``worker.tasks.sentiment.classify_news``
-解析调度。
+核心执行逻辑在 ``app.services.sentiment.ingest`` / ``classify`` / ``service``
+(service 层,API / 测试可直接调,免 import worker 包)。本模块是 RQ 入口:worker
+按 dotted path ``worker.tasks.sentiment.*`` 解析调度。
 
-复用 ``data_sync`` 队列(``worker/main.py`` 已监听)—— news 抓取与分类同属数据
-采集,同一 worker 进程即可,无需独立队列。
+复用 ``data_sync`` 队列(``worker/main.py`` 已监听)—— news 抓取、分类与因子
+计算同属数据采集,同一 worker 进程即可,无需独立队列。
 
 Args are passed as strings (RQ-serialization friendly); parsed inside. Note:
 ``app`` 是 apps/api 包(uv workspace member);worker 运行时 import,同
@@ -16,11 +15,13 @@ Args are passed as strings (RQ-serialization friendly); parsed inside. Note:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
+from app.db.session import SessionLocal
 from app.services.sentiment.classify import classify_news_items as _classify_news_items
 from app.services.sentiment.ingest import sync_news as _sync_news
+from app.services.sentiment.service import compute_and_store_sentiment_factor as _compute_factor
 
 
 def sync_news(
@@ -70,3 +71,35 @@ def classify_news(
         news_item_ids=[uuid.UUID(nid) for nid in news_item_ids],
         classifier_key=classifier,
     )
+
+
+def compute_sentiment_factor(
+    asset_ids: list[str],
+    start: str,
+    end: str,
+    model_name: str,
+) -> dict[str, Any]:
+    """RQ 入口:构建日频 sentiment factor 并写入 ``factor_values`` (FRA-69)。
+
+    Args:
+        asset_ids: Asset UUID 字符串列表(RQ 经 Redis 序列化,需原生类型)。
+        start: ISO date 字符串 (``YYYY-MM-DD``),因子窗口起点(闭区间)。
+        end: ISO date 字符串,因子窗口终点(闭区间)。
+        model_name: Classifier model name(决定读哪些 ``sentiment_scores`` 行,
+            同时写入 ``factor_values.source`` 以区分不同模型的因子值)。
+
+    Returns / Raises: 透传 service 层
+        :func:`compute_and_store_sentiment_factor`(成功返回 status=result 摘要;
+        preflight 失败 raise ``ValueError``,RQ 记 ``exc_info``)。
+    """
+    db = SessionLocal()
+    try:
+        return _compute_factor(
+            db,
+            universe=[uuid.UUID(a) for a in asset_ids],
+            start=date.fromisoformat(start),
+            end=date.fromisoformat(end),
+            model_name=model_name,
+        )
+    finally:
+        db.close()
