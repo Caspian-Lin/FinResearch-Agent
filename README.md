@@ -374,13 +374,19 @@ week scope live in [`docs/week3-progress.md`](./docs/week3-progress.md).
   window × cost sensitivity grid; async worker jobs; factor research UI with IC
   chart / ranking table / quantile curves / heatmap). Methodology in
   [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
-- **Week 4** — Financial text & sentiment factor
+- **Week 4** ✅ Financial text & sentiment factor (news ingestion via provider;
+  sentiment classification with fixture rule + LLM classifiers; daily sentiment
+  factor with anti-look-ahead timestamp mapping; technical-only vs
+  technical+sentiment comparison backtest; sentiment research UI with news /
+  scores / factor / comparison tabs). Methodology in
+  [`docs/sentiment-factor-methodology.md`](./docs/sentiment-factor-methodology.md).
 - **Week 5** — LLM agent research workflow
 - **Week 6** — Report generation & application materials
 
 Design docs in [`docs/`](./docs/): `architecture.md`, `database-schema.md`,
 `agent-design.md`, `backtesting-methodology.md`, `factor-research-methodology.md`,
-`week1-progress.md`, `week2-progress.md`, `week3-progress.md`.
+`sentiment-factor-methodology.md`, `week1-progress.md`, `week2-progress.md`,
+`week3-progress.md`.
 
 ## License
 
