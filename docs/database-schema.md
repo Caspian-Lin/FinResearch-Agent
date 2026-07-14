@@ -34,7 +34,9 @@ Week 1 已实现的表(见 `init_week1_schema` 迁移):
 `factor_compute` / `factor_quantile` / `factor_sweep`,FRA-35/54/57)与
 `result_json`(因子 worker 异步 job 的结构化结果,FRA-57)两列。Week 4 加了
 `news_items` 与 `sentiment_scores`(FRA-66):前者持久化新闻标题/摘要,后者持久化
-classifier 情绪分,均以 `asset_id` 外键关联到 `assets`。
+classifier 情绪分,均以 `asset_id` 外键关联到 `assets`。Week 5 加了 Agent 运行
+持久化三表(FRA-85):`research_runs` / `research_steps` / `agent_tool_calls`,
+把自然语言问题、已批准计划、各角色步骤、工具调用和下游 run id 串起来。
 
 ### 文本与 sentiment 时间口径(Week 4 / FRA-66)
 
@@ -60,6 +62,31 @@ sentiment 是稀疏事件流,非 ohlcv / factor_values 那种连续追加时序;
   资产、同一因子、同一时点的多计算来源/版本,且 `time` 入主键满足 TimescaleDB
   hypertable 对分区列的要求。`factor_name` 编码参数,例如 `momentum_21`、
   `rsi_14`、`macd`、`volatility_20d`。
+
+## Agent Run Persistence (Week 5 / FRA-85)
+
+三张普通关系表(非 hypertable)为 Week 5 LLM 研究 Agent 提供可审计、可恢复的运行
+日志,把自然语言问题、版本化计划、各角色步骤、工具调用和下游实验 ID 串联起来:
+
+| 表名 | 主键 | 说明 |
+|---|---|---|
+| `research_runs` | `id UUID` | 一次研究运行:user 归属、原始问题、版本化 plan JSON + hash、状态机、planner provenance、最终 synthesis、error summary、下游 backtest 链接 |
+| `research_steps` | `id UUID` | run 下有序步骤;`UNIQUE(run_id, sequence)` 保证线性审计轨迹 |
+| `agent_tool_calls` | `id UUID` | 单次工具调用;副作用工具的 `(step_id, idempotency_key)` 部分唯一索引防止重复执行 |
+
+**状态机约束**:`status` / `agent_role` / `tool_name` 列均有 `CHECK` 约束,只允许
+FRA-84 契约定义的白名单值(defense in depth —— 应用层 `assert_run_transition` /
+`assert_step_transition` 与 DB 层双重校验)。终态(`succeeded` / `failed` /
+`canceled`)不可回退。
+
+**归属与删除**:`user_id` 外键到 `users`,所有查询以 current_user 过滤,跨用户读取
+返回统一 404。`research_steps.run_id` 与 `agent_tool_calls.step_id` 均 `ON DELETE
+CASCADE`(删 run 自动清理步骤和工具调用);`research_runs.backtest_run_id` 外键到
+`backtest_runs(id)` 且 `ON DELETE SET NULL`(删回测不抹除研究轨迹,只断开链接)。
+
+**敏感信息边界**:Repository 在写入 `args_json` / `result_json` 前过 sanitizer
+(`app.services.agent.sanitizer`),API key、token、Authorization header、raw
+traceback 永不入库。
 
 ## TimescaleDB Hypertables
 
