@@ -20,6 +20,7 @@ const common = {
     newBacktest: 'New Backtest',
     backtestHistory: 'Backtest History',
     factorResearch: 'Factor Research',
+    sentimentResearch: 'Sentiment Research',
     memos: 'Research Memos',
     settings: 'Settings',
   },

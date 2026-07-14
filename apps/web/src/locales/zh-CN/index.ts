@@ -9,6 +9,7 @@ import dashboard from './dashboard';
 import errors from './errors';
 import backtest from './backtest';
 import factor from './factor';
+import sentiment from './sentiment';
 
 export const zhCN = {
   common,
@@ -18,6 +19,7 @@ export const zhCN = {
   errors,
   backtest,
   factor,
+  sentiment,
 } as const;
 
 export default zhCN;
