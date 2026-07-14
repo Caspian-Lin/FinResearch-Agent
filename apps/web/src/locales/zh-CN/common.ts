@@ -18,6 +18,7 @@ const common = {
     newBacktest: '新建回测',
     backtestHistory: '历史回测',
     factorResearch: '因子研究',
+    sentimentResearch: '情绪研究',
     memos: '研报备忘',
     settings: '设置',
   },
