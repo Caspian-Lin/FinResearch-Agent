@@ -23,6 +23,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import BacktestPage from '@/pages/BacktestPage';
 import BacktestHistoryPage from '@/pages/BacktestHistoryPage';
 import FactorResearchPage from '@/pages/FactorResearchPage';
+import SentimentResearchPage from '@/pages/SentimentResearchPage';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -44,6 +45,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="/backtest/history" element={<BacktestHistoryPage />} />
             <Route path="/backtest/history/:runId" element={<BacktestHistoryPage />} />
             <Route path="/factor-research" element={<FactorResearchPage />} />
+            <Route path="/sentiment-research" element={<SentimentResearchPage />} />
           </Route>
 
           {/* Unknown paths funnel toward the (protected) dashboard. */}

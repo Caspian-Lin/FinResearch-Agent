@@ -428,6 +428,222 @@ export type FactorJobKind = 'factor_compute' | 'factor_quantile' | 'factor_sweep
 /** Factor worker job lifecycle (mirrors `BACKTEST_STATUSES`). */
 export type FactorJobStatus = 'pending' | 'running' | 'success' | 'failed';
 
+// ---------------------------------------------------------------------------
+// Sentiment research (FRA-70 API + FRA-71 comparison)
+// ---------------------------------------------------------------------------
+// Mirrors the backend `app/schemas/sentiment.py` contract 1:1. Timestamps are
+// ISO strings; numeric fields are JSON numbers. Each research response carries
+// a `config_snapshot` for reproducibility.
+
+/** Sentiment label (mirrors backend label set). */
+export type SentimentLabel = 'positive' | 'negative' | 'neutral';
+
+/** One persisted news item (FRA-70 `NewsItemRead`). */
+export interface NewsItemRead {
+  id: string;
+  asset_id: string;
+  source: string;
+  published_at: string;
+  headline: string;
+  summary: string | null;
+  url: string | null;
+}
+
+/** One classified news item with score (FRA-70 `SentimentScoreRead`). */
+export interface SentimentScoreRead {
+  id: string;
+  news_item_id: string;
+  asset_id: string;
+  published_at: string;
+  model_name: string;
+  label: string;
+  score: number;
+  confidence: number | null;
+  source: string;
+  headline: string;
+  summary: string | null;
+  url: string | null;
+}
+
+/** One per-day per-asset sentiment aggregate (FRA-70 `SentimentSummaryRead`). */
+export interface SentimentSummaryRead {
+  asset_id: string;
+  signal_date: string;
+  window_start: string;
+  window_end: string;
+  model_name: string;
+  prompt_version: string;
+  score: number | null;
+  confidence: number | null;
+  news_count: number;
+  label_counts: Record<string, number>;
+  source: string;
+}
+
+// --- sentiment request types ----------------------------------------------
+
+/** `POST /sentiment/news/sync` (sync) + `POST /sentiment/news/sync-async`. */
+export interface NewsSyncRequest {
+  name?: string;
+  universe: string[];
+  start: string;
+  end: string;
+  provider?: string;
+}
+
+/** `POST /sentiment/score` (sync) + `POST /sentiment/score-async`. */
+export interface SentimentScoreRequest {
+  name?: string;
+  universe: string[];
+  start: string;
+  end: string;
+  classifier?: string;
+}
+
+/** `POST /sentiment/factor/compute` (sync) + `POST /sentiment/factor/compute-async`. */
+export interface SentimentFactorRequest {
+  name?: string;
+  universe: string[];
+  start: string;
+  end: string;
+  model_name: string;
+}
+
+// --- sentiment response types ---------------------------------------------
+
+export interface NewsListResponse {
+  items: NewsItemRead[];
+  total: number;
+}
+
+export interface NewsSyncResponse {
+  provider: string;
+  assets: number;
+  fetched: number;
+  inserted: number;
+  updated: number;
+  status: string;
+  warning: string | null;
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentScoresResponse {
+  items: SentimentScoreRead[];
+  total: number;
+}
+
+export interface SentimentClassifyResponse {
+  classifier: string | null;
+  news: number;
+  classified: number;
+  skipped: number;
+  inserted: number;
+  updated: number;
+  status: string;
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentFactorItemRead {
+  asset_id: string;
+  values: TimeSeriesPoint[];
+}
+
+export interface SentimentFactorResponse {
+  model_name: string;
+  items: SentimentFactorItemRead[];
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentFactorComputeResponse {
+  model_name: string;
+  assets: number;
+  scores_read: number;
+  rows_written: number;
+  status: string;
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentSummariesResponse {
+  model_name: string;
+  items: SentimentSummaryRead[];
+  total: number;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** Sentiment worker job kind. */
+export type SentimentJobKind =
+  | 'sentiment_sync_news'
+  | 'sentiment_classify'
+  | 'sentiment_factor';
+
+/** `GET /sentiment/jobs/{run_id}` — poll pending → running → success/failed. */
+export interface SentimentJobStatusResponse {
+  run_id: string;
+  name: string;
+  run_kind: string;
+  status: string;
+  error_message: string | null;
+  result: Record<string, unknown> | null;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** 202 response after a sentiment job is created + enqueued. */
+export interface SentimentJobEnqueueResponse {
+  run_id: string;
+  run_kind: string;
+  status: string;
+}
+
+// --- FRA-71 comparison types -----------------------------------------------
+
+/** Comparison fusion mode (mirrors backend `SentimentTechStrategy` mode param). */
+export type ComparisonMode = 'overlay' | 'combined';
+
+/** Technical factor names available for the comparison (mirrors factor registry). */
+export type ComparisonTechnicalFactor = 'momentum' | 'reversal' | 'rsi' | 'volatility';
+
+/** `POST /backtest/comparison` payload. */
+export interface ComparisonCreateRequest {
+  name: string;
+  universe: string[];
+  start: string;
+  end: string;
+  benchmark_asset_id?: string | null;
+  initial_capital?: number;
+  cost_bps?: number;
+  rebalance?: RebalanceFreq;
+  price_field?: BacktestPriceField;
+  model_name: string;
+  strategy_params?: {
+    technical_factor?: ComparisonTechnicalFactor;
+    window?: number;
+    top_k?: number;
+    mode?: ComparisonMode;
+    sentiment_threshold?: number;
+    sentiment_weight?: number;
+  };
+  include_sentiment_only?: boolean;
+}
+
+/** 202 response after a comparison run is created + enqueued. */
+export interface ComparisonEnqueueResponse {
+  run_id: string;
+  status: string;
+}
+
+/** One child run within a comparison (role + run detail + metrics). */
+export interface ComparisonChildRead {
+  role: string;
+  run: BacktestRunRead;
+  metrics: BacktestMetricsRead | null;
+}
+
+/** Full comparison result: parent run + child runs side-by-side. */
+export interface ComparisonDetailRead {
+  run: BacktestRunRead;
+  children: ComparisonChildRead[];
+}
+
 /** `POST /factors/compute` payload (sync) — also the `*-async` body. */
 export interface FactorComputeRequest {
   name?: string;
