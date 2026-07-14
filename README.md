@@ -29,6 +29,7 @@ The UI ships in **English** and **简体中文**; switch at any time from the he
 - [Week 1 Progress](#week-1-progress)
 - [Week 2 Progress](#week-2-progress)
 - [Week 3 Progress](#week-3-progress)
+- [Week 4 Progress](#week-4-progress)
 - [Roadmap / Next Steps](#roadmap--next-steps)
 
 ---
@@ -276,6 +277,21 @@ See [`docs/week3-progress.md`](./docs/week3-progress.md) and
 [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md)
 for the reproducible steps, anti-cheat audit, and limitations.
 
+### Week 4 Sentiment Research Demo
+
+After syncing `NVDA`, `AMD`, and `QQQ`, open the Sentiment Research page. In the
+**News** tab, sync news for the same explicit window (e.g. `2024-01-02` to
+`2024-06-30`). In the **Scores** tab, classify with the fixture classifier. In the
+**Factor** tab, compute the daily sentiment factor and view the per-asset chart.
+Finally, in the **Comparison** tab, run a technical-only vs technical+sentiment
+backtest (overlay or combined mode) and compare equity curves and metrics. The
+comparison run records its full universe, window, strategy mode, sentiment
+threshold, cost, and classifier/model version in `config_json`.
+
+See [`docs/week4-progress.md`](./docs/week4-progress.md) and
+[`docs/sentiment-factor-methodology.md`](./docs/sentiment-factor-methodology.md)
+for the reproducible steps, anti-cheat audit, and limitations.
+
 ## Data Sources, Adjusted Prices & Quality Checks
 
 Be explicit about what the data is and isn't:
@@ -363,6 +379,22 @@ The methodology and anti-cheat audit are documented in
 Demo steps, acceptance notes, Week 3 deliverable mapping, limitations, and next
 week scope live in [`docs/week3-progress.md`](./docs/week3-progress.md).
 
+## Week 4 Progress
+
+Week 4 — **Financial Text & Sentiment Factor** — is implemented as a reproducible
+text-factor pipeline: news headline/summary ingestion, sentiment classification
+(fixture rule + LLM), daily sentiment factor with anti-look-ahead `published_at →
+signal_date` mapping, technical-only vs technical+sentiment comparison backtest
+(overlay / combined), async worker jobs, and a Sentiment Research UI with news /
+scores / factor / comparison tabs.
+
+The methodology, 11-row anti-cheat audit table (implementation + test evidence),
+and text-factor limitations (LLM drift, news coverage bias, overfitting) are
+documented in
+[`docs/sentiment-factor-methodology.md`](./docs/sentiment-factor-methodology.md).
+Demo steps, acceptance notes, Week 4 deliverable mapping, limitations, and next
+week scope live in [`docs/week4-progress.md`](./docs/week4-progress.md).
+
 ## Roadmap / Next Steps
 
 - **Week 1** ✅ Data foundation & dashboard skeleton
@@ -386,7 +418,7 @@ week scope live in [`docs/week3-progress.md`](./docs/week3-progress.md).
 Design docs in [`docs/`](./docs/): `architecture.md`, `database-schema.md`,
 `agent-design.md`, `backtesting-methodology.md`, `factor-research-methodology.md`,
 `sentiment-factor-methodology.md`, `week1-progress.md`, `week2-progress.md`,
-`week3-progress.md`.
+`week3-progress.md`, `week4-progress.md`.
 
 ## License
 
