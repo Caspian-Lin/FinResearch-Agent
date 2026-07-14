@@ -717,6 +717,28 @@ def _build_planner_retryer() -> Retrying:
     )
 
 
+def _strip_json_fences(text: str) -> str:
+    """Remove markdown code fences (```json ... ```) that some models emit.
+
+    When ``response_format`` is None (unsupported by the model), models may
+    wrap JSON output in markdown fences despite the prompt instruction not to.
+    This strips a single leading ```…\n and trailing ``` so ``json.loads``
+    succeeds. If there are no fences, the text is returned unchanged.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    # Drop the opening fence line (```json, ```JSON, or just ```).
+    first_nl = stripped.find("\n")
+    if first_nl == -1:
+        return stripped
+    stripped = stripped[first_nl + 1 :]
+    # Drop the trailing fence.
+    if stripped.rstrip().endswith("```"):
+        stripped = stripped.rstrip()[:-3]
+    return stripped.strip()
+
+
 class LLMPlanner:
     """OpenAI-compatible chat-completions planner via httpx (FRA-86).
 
@@ -746,6 +768,10 @@ class LLMPlanner:
         temperature: float | None = None,
         timeout: float | None = None,
         max_repairs: int | None = None,
+        # True (default) → {"type": "json_object"} for OpenAI compatibility.
+        # False/None → disabled (some OpenRouter models reject json_object).
+        # dict → custom (e.g. {"type": "json_schema", ...}).
+        response_format: dict[str, Any] | bool | None = True,
     ) -> None:
         self._client = client
         self._retryer = retryer
@@ -759,6 +785,12 @@ class LLMPlanner:
             timeout if timeout is not None else float(settings.llm_request_timeout_seconds)
         )
         self._max_repairs = max_repairs if max_repairs is not None else settings.planner_max_repairs
+        if response_format is True:
+            self._response_format: dict[str, Any] | None = {"type": "json_object"}
+        elif response_format is False or response_format is None:
+            self._response_format = None
+        else:
+            self._response_format = response_format
 
     def _get_client(self) -> httpx.Client:
         if self._client is None:
@@ -771,8 +803,9 @@ class LLMPlanner:
             "model": self._model,
             "messages": messages,
             "temperature": self._temperature,
-            "response_format": {"type": "json_object"},
         }
+        if self._response_format is not None:
+            payload["response_format"] = self._response_format
         headers = {"Authorization": f"Bearer {self._api_key}"}
         retryer = self._retryer if self._retryer is not None else _build_planner_retryer()
 
@@ -871,9 +904,10 @@ class LLMPlanner:
 
             content = cast(str, raw["choices"][0]["message"]["content"])
 
-            # ── Parse JSON ────────────────────────────────────────────────
+            # ── Parse JSON (strip markdown fences if present) ───────────────
+            stripped = _strip_json_fences(content)
             try:
-                plan_dict = json.loads(content)
+                plan_dict = json.loads(stripped)
             except json.JSONDecodeError as exc:
                 last_errors = [f"invalid JSON: {exc}"]
                 if attempt < self._max_repairs:
