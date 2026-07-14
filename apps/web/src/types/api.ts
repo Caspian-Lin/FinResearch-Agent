@@ -6,7 +6,12 @@
  * at the view layer via dayjs.
  */
 
-/** A single asset (FRA-7 `AssetRead`). */
+/**
+ * A single asset (FRA-7 `AssetRead`).
+ *
+ * `data_source` is the originating provider (yfinance / akshare / tushare) and
+ * `list_status` is its tradable/listing status — both added by FRA-78.
+ */
 export interface AssetRead {
   asset_id: string;
   symbol: string;
@@ -14,15 +19,23 @@ export interface AssetRead {
   exchange: string;
   asset_type: string;
   currency: string;
+  data_source: string;
+  list_status: string;
   created_at: string;
 }
 
-/** A row inside a watchlist (FRA-10 `WatchlistItemRead`). */
+/**
+ * A row inside a watchlist (FRA-10 `WatchlistItemRead`).
+ *
+ * `data_source` (added by FRA-80) mirrors the underlying asset's provider so
+ * the watchlist table can show where each row's data comes from.
+ */
 export interface WatchlistItemRead {
   asset_id: string;
   symbol: string;
   exchange: string;
   name: string;
+  data_source: string;
   added_at: string;
 }
 
@@ -323,4 +336,402 @@ export interface BacktestEnqueueResponse {
 export interface BacktestListResponse {
   items: BacktestRunRead[];
   total: number;
+}
+
+// ---------------------------------------------------------------------------
+// Factor research (FRA-56 sync API + FRA-57 async worker jobs)
+// ---------------------------------------------------------------------------
+// Mirrors the backend `app/schemas/factor.py` contract 1:1. Numeric fields are
+// JSON numbers; timestamps are ISO strings. `QuantileResult` / `ICResult` align
+// with `packages/shared` types (FRA-47). The async job `result` is a freeform
+// object whose shape varies by `run_kind` (compute=rows, quantile=curves,
+// sweep=summary) — the page casts it per kind.
+
+/** Price source column (same values as `BacktestPriceField`, kept separate for clarity). */
+export type FactorPriceField = 'raw' | 'adjusted';
+
+/** A time-series point: IC per period, quantile equity, top−bottom spread. */
+export interface TimeSeriesPoint {
+  /** ISO 8601, UTC midnight. */
+  time: string;
+  value: number;
+}
+
+/** IC summary stats (mean / ICIR / t-stat / p-value / n / positive_rate). */
+export interface ICSummary {
+  mean: number;
+  icir: number;
+  t_stat: number;
+  p_value: number;
+  n: number;
+  positive_rate: number;
+}
+
+/** IC evaluation: per-period series + summary. */
+export interface ICResult {
+  series: TimeSeriesPoint[];
+  summary: ICSummary;
+}
+
+/** Stratified (quantile) backtest: per-bucket equity + long−short + monotonicity. */
+export interface QuantileResult {
+  /** key = quantile label 1..N (1 = lowest factor value), value = that bucket's equity series. */
+  quantile_equity: Record<string, TimeSeriesPoint[]>;
+  /** long top − short bottom cumulative spread. */
+  top_minus_bottom: TimeSeriesPoint[];
+  /** monotonicity of bucket mean return vs bucket rank (Spearman; NaN if degenerate). */
+  monotonicity: number;
+}
+
+/** One asset row in a cross-sectional factor ranking snapshot (FRA-76). */
+export interface FactorRankingSnapshotItem {
+  asset_id: string;
+  symbol: string;
+  factor_value: number;
+  rank_pct: number;
+  z_score: number | null;
+  quantile_bucket: number;
+}
+
+/** Ranking snapshot response for one decision date. */
+export interface FactorRankingSnapshotResponse {
+  factor_name: string;
+  source: string;
+  snapshot_time: string | null;
+  requested_date: string | null;
+  n_quantiles: number;
+  items: FactorRankingSnapshotItem[];
+  total: number;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** One dimension's sensitivity impact (FRA-54 `ParamImpact`). */
+export interface ParamImpact {
+  param: string;
+  normalized_range: number;
+  absolute_range: number;
+  high_impact: boolean;
+}
+
+/** Factor sensitivity sweep summary (FRA-54 `SweepSummary`). */
+export interface SensitivitySummary {
+  metric_table: Record<string, unknown>[];
+  param_impacts: ParamImpact[];
+  highly_sensitive: boolean;
+  best_net_sharpe: number | null;
+  worst_net_sharpe: number | null;
+}
+
+/** Factor worker job kind (mirrors backend factor run_kind values, FRA-57). */
+export type FactorJobKind = 'factor_compute' | 'factor_quantile' | 'factor_sweep';
+
+/** Factor worker job lifecycle (mirrors `BACKTEST_STATUSES`). */
+export type FactorJobStatus = 'pending' | 'running' | 'success' | 'failed';
+
+// ---------------------------------------------------------------------------
+// Sentiment research (FRA-70 API + FRA-71 comparison)
+// ---------------------------------------------------------------------------
+// Mirrors the backend `app/schemas/sentiment.py` contract 1:1. Timestamps are
+// ISO strings; numeric fields are JSON numbers. Each research response carries
+// a `config_snapshot` for reproducibility.
+
+/** Sentiment label (mirrors backend label set). */
+export type SentimentLabel = 'positive' | 'negative' | 'neutral';
+
+/** One persisted news item (FRA-70 `NewsItemRead`). */
+export interface NewsItemRead {
+  id: string;
+  asset_id: string;
+  source: string;
+  published_at: string;
+  headline: string;
+  summary: string | null;
+  url: string | null;
+}
+
+/** One classified news item with score (FRA-70 `SentimentScoreRead`). */
+export interface SentimentScoreRead {
+  id: string;
+  news_item_id: string;
+  asset_id: string;
+  published_at: string;
+  model_name: string;
+  label: string;
+  score: number;
+  confidence: number | null;
+  source: string;
+  headline: string;
+  summary: string | null;
+  url: string | null;
+}
+
+/** One per-day per-asset sentiment aggregate (FRA-70 `SentimentSummaryRead`). */
+export interface SentimentSummaryRead {
+  asset_id: string;
+  signal_date: string;
+  window_start: string;
+  window_end: string;
+  model_name: string;
+  prompt_version: string;
+  score: number | null;
+  confidence: number | null;
+  news_count: number;
+  label_counts: Record<string, number>;
+  source: string;
+}
+
+// --- sentiment request types ----------------------------------------------
+
+/** `POST /sentiment/news/sync` (sync) + `POST /sentiment/news/sync-async`. */
+export interface NewsSyncRequest {
+  name?: string;
+  universe: string[];
+  start: string;
+  end: string;
+  provider?: string;
+}
+
+/** `POST /sentiment/score` (sync) + `POST /sentiment/score-async`. */
+export interface SentimentScoreRequest {
+  name?: string;
+  universe: string[];
+  start: string;
+  end: string;
+  classifier?: string;
+}
+
+/** `POST /sentiment/factor/compute` (sync) + `POST /sentiment/factor/compute-async`. */
+export interface SentimentFactorRequest {
+  name?: string;
+  universe: string[];
+  start: string;
+  end: string;
+  model_name: string;
+}
+
+// --- sentiment response types ---------------------------------------------
+
+export interface NewsListResponse {
+  items: NewsItemRead[];
+  total: number;
+}
+
+export interface NewsSyncResponse {
+  provider: string;
+  assets: number;
+  fetched: number;
+  inserted: number;
+  updated: number;
+  status: string;
+  warning: string | null;
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentScoresResponse {
+  items: SentimentScoreRead[];
+  total: number;
+}
+
+export interface SentimentClassifyResponse {
+  classifier: string | null;
+  news: number;
+  classified: number;
+  skipped: number;
+  inserted: number;
+  updated: number;
+  status: string;
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentFactorItemRead {
+  asset_id: string;
+  values: TimeSeriesPoint[];
+}
+
+export interface SentimentFactorResponse {
+  model_name: string;
+  items: SentimentFactorItemRead[];
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentFactorComputeResponse {
+  model_name: string;
+  assets: number;
+  scores_read: number;
+  rows_written: number;
+  status: string;
+  config_snapshot: Record<string, unknown>;
+}
+
+export interface SentimentSummariesResponse {
+  model_name: string;
+  items: SentimentSummaryRead[];
+  total: number;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** Sentiment worker job kind. */
+export type SentimentJobKind =
+  | 'sentiment_sync_news'
+  | 'sentiment_classify'
+  | 'sentiment_factor';
+
+/** `GET /sentiment/jobs/{run_id}` — poll pending → running → success/failed. */
+export interface SentimentJobStatusResponse {
+  run_id: string;
+  name: string;
+  run_kind: string;
+  status: string;
+  error_message: string | null;
+  result: Record<string, unknown> | null;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** 202 response after a sentiment job is created + enqueued. */
+export interface SentimentJobEnqueueResponse {
+  run_id: string;
+  run_kind: string;
+  status: string;
+}
+
+// --- FRA-71 comparison types -----------------------------------------------
+
+/** Comparison fusion mode (mirrors backend `SentimentTechStrategy` mode param). */
+export type ComparisonMode = 'overlay' | 'combined';
+
+/** Technical factor names available for the comparison (mirrors factor registry). */
+export type ComparisonTechnicalFactor = 'momentum' | 'reversal' | 'rsi' | 'volatility';
+
+/** `POST /backtest/comparison` payload. */
+export interface ComparisonCreateRequest {
+  name: string;
+  universe: string[];
+  start: string;
+  end: string;
+  benchmark_asset_id?: string | null;
+  initial_capital?: number;
+  cost_bps?: number;
+  rebalance?: RebalanceFreq;
+  price_field?: BacktestPriceField;
+  model_name: string;
+  strategy_params?: {
+    technical_factor?: ComparisonTechnicalFactor;
+    window?: number;
+    top_k?: number;
+    mode?: ComparisonMode;
+    sentiment_threshold?: number;
+    sentiment_weight?: number;
+  };
+  include_sentiment_only?: boolean;
+}
+
+/** 202 response after a comparison run is created + enqueued. */
+export interface ComparisonEnqueueResponse {
+  run_id: string;
+  status: string;
+}
+
+/** One child run within a comparison (role + run detail + metrics). */
+export interface ComparisonChildRead {
+  role: string;
+  run: BacktestRunRead;
+  metrics: BacktestMetricsRead | null;
+}
+
+/** Full comparison result: parent run + child runs side-by-side. */
+export interface ComparisonDetailRead {
+  run: BacktestRunRead;
+  children: ComparisonChildRead[];
+}
+
+/** `POST /factors/compute` payload (sync) — also the `*-async` body. */
+export interface FactorComputeRequest {
+  name?: string;
+  universe: string[];
+  source: string;
+  start: string;
+  end: string;
+  price_field?: FactorPriceField;
+  factor_names: string[];
+}
+
+/** `POST /factors/quantile-backtest` payload (sync) — also the `*-async` body. */
+export interface QuantileBacktestRequest {
+  name?: string;
+  universe: string[];
+  source: string;
+  start: string;
+  end: string;
+  price_field?: FactorPriceField;
+  factor_name: string;
+  n_quantiles?: number;
+}
+
+/** `POST /factors/sensitivity` payload (sync) — also the `*-async` body. */
+export interface SensitivityRequest {
+  name?: string;
+  universe: string[];
+  source: string;
+  start: string;
+  end: string;
+  price_field?: FactorPriceField;
+  factors: string[];
+  windows?: Record<string, number[]> | null;
+  top_ks?: number[];
+  quantiles?: number[];
+  n_quantiles?: number;
+  rebalances?: string[];
+  cost_bands?: number[];
+}
+
+/** `POST /factors/compute` response. */
+export interface FactorComputeResponse {
+  source: string;
+  factor_names: string[];
+  rows_written: number;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** `GET /factors/{name}/ic` response. */
+export interface ICResponse {
+  factor_name: string;
+  result: ICResult;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** `POST /factors/quantile-backtest` response. */
+export interface QuantileBacktestResponse {
+  factor_name: string;
+  result: QuantileResult;
+  config_snapshot: Record<string, unknown>;
+}
+
+/** `POST /factors/sensitivity` response. */
+export interface SensitivityResponse extends SensitivitySummary {
+  config_snapshot: Record<string, unknown>;
+}
+
+/** 202 response after a factor job is created + enqueued (FRA-57). */
+export interface FactorJobEnqueueResponse {
+  run_id: string;
+  run_kind: FactorJobKind;
+  status: 'pending';
+}
+
+/**
+ * `GET /factors/jobs/{id}` response (FRA-57): poll pending → running → success/failed.
+ *
+ * `result` is the worker-written `result_json` (shape varies by `run_kind`: compute
+ * = `{rows_written, factor_names}`, quantile = `QuantileResult`, sweep =
+ * `SensitivitySummary`); null until success. `error_message` is a short backend
+ * message surfaced only on failure.
+ */
+export interface FactorJobStatusResponse {
+  run_id: string;
+  name: string;
+  run_kind: FactorJobKind;
+  status: FactorJobStatus;
+  error_message: string | null;
+  result: Record<string, unknown> | null;
+  config_snapshot: Record<string, unknown>;
 }

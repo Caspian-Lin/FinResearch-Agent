@@ -16,6 +16,7 @@ import { useSelectionStore } from '@/store/selection';
 import { ApiError } from '@/api/client';
 import i18n from '@/i18n';
 import type { WatchlistRead, AssetRead } from '@/types/api';
+import type { SearchAssetsParams } from '@/api/assets';
 
 // --- Mocks -------------------------------------------------------------------
 // `vi.hoisted` ensures the mock fn references exist before `vi.mock` factories
@@ -27,7 +28,7 @@ const mocks = vi.hoisted(() => ({
   deleteWatchlist: vi.fn<(id: string) => Promise<void>>(),
   addWatchlistAsset: vi.fn<(watchlistId: string, assetId: string) => Promise<WatchlistRead>>(),
   removeWatchlistAsset: vi.fn<(watchlistId: string, assetId: string) => Promise<void>>(),
-  searchAssets: vi.fn<(params: { symbol: string; exchange?: string }) => Promise<AssetRead[]>>(),
+  searchAssets: vi.fn<(params: SearchAssetsParams) => Promise<AssetRead[]>>(),
 }));
 
 const {
@@ -71,6 +72,8 @@ function makeAsset(overrides: Partial<AssetRead> = {}): AssetRead {
     exchange: 'NASDAQ',
     asset_type: 'stock',
     currency: 'USD',
+    data_source: 'yfinance',
+    list_status: 'listed',
     created_at: '2024-01-01T00:00:00Z',
     ...overrides,
   };
@@ -82,6 +85,7 @@ function makeItem(overrides: Partial<WatchlistRead['items'][number]> = {}) {
     symbol: 'AAPL',
     exchange: 'NASDAQ',
     name: 'Apple Inc.',
+    data_source: 'yfinance',
     added_at: '2024-01-02T00:00:00Z',
     ...overrides,
   };
@@ -195,7 +199,7 @@ describe('WatchlistPage', () => {
     await screen.findByText('Tech');
 
     await user.click(screen.getByRole('button', { name: /Add asset/i }));
-    await user.type(await screen.findByPlaceholderText('e.g. AAPL'), 'AAPL');
+    await user.type(await screen.findByPlaceholderText(/e\.g\. AAPL or Apple/i), 'AAPL');
     searchAssets.mockResolvedValue([
       makeAsset({ asset_id: 'a-1', symbol: 'AAPL', exchange: 'NASDAQ' }),
       makeAsset({ asset_id: 'a-2', symbol: 'AAPL', exchange: 'NYSE', name: 'AAPL NYSE' }),
@@ -214,6 +218,7 @@ describe('WatchlistPage', () => {
           symbol: 'AAPL',
           exchange: 'NASDAQ',
           name: 'Apple Inc.',
+          data_source: 'yfinance',
           added_at: '2024-01-02T00:00:00Z',
         },
       ],
@@ -232,7 +237,7 @@ describe('WatchlistPage', () => {
     await screen.findByText('Tech');
 
     await user.click(screen.getByRole('button', { name: /Add asset/i }));
-    await user.type(await screen.findByPlaceholderText('e.g. AAPL'), 'ZZZZ');
+    await user.type(await screen.findByPlaceholderText(/e\.g\. AAPL or Apple/i), 'ZZZZ');
     searchAssets.mockResolvedValue([]);
     await user.click(screen.getByRole('button', { name: 'Search' }));
 

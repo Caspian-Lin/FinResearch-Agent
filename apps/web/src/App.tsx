@@ -93,8 +93,14 @@ function AppContent() {
   const navItems: MenuProps['items'] = [
     { key: '/dashboard', label: t('common:nav.dashboard') },
     { key: '/watchlist', label: t('common:nav.watchlist') },
-    { key: '/backtest', label: t('common:nav.backtests') },
+    { key: '/backtest', label: t('common:nav.newBacktest') },
+    { key: '/backtest/history', label: t('common:nav.backtestHistory') },
+    { key: '/factor-research', label: t('common:nav.factorResearch') },
+    { key: '/sentiment-research', label: t('common:nav.sentimentResearch') },
   ];
+  const selectedNavKey = location.pathname.startsWith('/backtest/history')
+    ? '/backtest/history'
+    : location.pathname;
 
   const userMenuItems: MenuProps['items'] = [
     {
@@ -126,7 +132,7 @@ function AppContent() {
           <Menu
             theme={mode}
             mode="horizontal"
-            selectedKeys={[location.pathname]}
+            selectedKeys={[selectedNavKey]}
             items={navItems}
             className="app-nav"
             onClick={({ key }) => navigate(key)}

@@ -192,6 +192,10 @@ export function buildAntdTheme(mode: ThemeMode, palette: ThemePalette): ThemeCon
         headerBg: palette.surface,
         headerSortActiveBg: palette.surface,
         headerSortHoverBg: palette.surface,
+        // Body cells of the active-sort column. Without this the algorithm
+        // derives it from colorBgBase (oklch) into a near-black fill, so the
+        // sorted date column rendered black-on-black in light mode.
+        bodySortBg: palette.surface,
         rowHoverBg: palette.surface,
         borderColor: palette.border,
       },
@@ -202,10 +206,24 @@ export function buildAntdTheme(mode: ThemeMode, palette: ThemePalette): ThemeCon
       Alert: {
         colorInfo: palette.quality,
         colorInfoBg: palette.qualitySoft,
+        // success was unset → the algorithm derived a dark bg from colorSuccess
+        // (oklch), so the "data synced" success Alert rendered dark grey in
+        // light mode. Mirror the info/warning/error pattern explicitly.
+        colorSuccess: palette.quality,
+        colorSuccessBg: palette.qualitySoft,
         colorWarning: palette.warning,
         colorWarningBg: palette.warningSoft,
         colorError: palette.danger,
         colorErrorBg: palette.dangerSoft,
+      },
+      Select: {
+        // Without these the algorithm derives option Active/Selected fills from
+        // colorPrimary (oklch) into dark greys; the benchmark dropdown's option
+        // panel then rendered dark grey in light mode.
+        optionSelectedBg: palette.primarySoft,
+        optionSelectedColor: palette.primary,
+        optionSelectedFontWeight: 600,
+        optionActiveBg: palette.surface,
       },
     },
   };

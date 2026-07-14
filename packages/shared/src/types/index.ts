@@ -131,3 +131,131 @@ export interface AgentPlan {
   };
   validation: AgentValidation;
 }
+
+// ─── Factor research(Week 3,FRA-47)──────────────────────────────────────────
+// 与后端 app/services/factors 契约一一对应;详见 docs/factor-research-methodology.md(FRA-59)。
+
+/** 时序点(time + value),承载 IC series / 分层净值等时间序列结果 */
+export interface TimeSeriesPoint {
+  /** ISO 8601,UTC 午夜 */
+  time: string;
+  value: number;
+}
+
+/** 因子值,对齐后端 FactorValue(FRA-47)与 factor_values 表(FRA-48) */
+export interface FactorValue {
+  asset_id: string;
+  /** 因子名,编码参数,如 momentum_21 / rsi_14 / volatility_20d */
+  factor_name: string;
+  /** ISO 8601,UTC 午夜 */
+  time: string;
+  value: number;
+  /** 参数快照,保证可复现(§11.3 第 6 条) */
+  params: Record<string, unknown>;
+  source: string;
+}
+
+/** IC(信息系数)统计汇总,对齐后端 ICSummary(FRA-47 / FRA-52) */
+export interface ICSummary {
+  mean: number;
+  icir: number;
+  t_stat: number;
+  p_value: number;
+  n: number;
+  positive_rate: number;
+}
+
+/** IC 评估结果:逐期 IC 序列 + 汇总,对齐后端 ICResult */
+export interface ICResult {
+  series: TimeSeriesPoint[];
+  summary: ICSummary;
+}
+
+/** 分层(quantile)回测结果,对齐后端 QuantileResult(FRA-47 / FRA-53) */
+export interface QuantileResult {
+  /** key = 分层标签(1..N,1 = 因子值最低),value = 该层净值时序 */
+  quantile_equity: Record<string, TimeSeriesPoint[]>;
+  /** long top − short bottom 多空组合净值时序 */
+  top_minus_bottom: TimeSeriesPoint[];
+  /** 层平均收益随层序的单调性(如 Spearman 相关) */
+  monotonicity: number;
+}
+
+/** 单个资产在某日横截面因子排名快照中的行(FRA-76) */
+export interface FactorRankingSnapshotItem {
+  asset_id: string;
+  symbol: string;
+  factor_value: number;
+  rank_pct: number;
+  z_score: number | null;
+  quantile_bucket: number;
+}
+
+/** 某一决策日的横截面因子排名快照(FRA-76) */
+export interface FactorRankingSnapshot {
+  factor_name: string;
+  source: string;
+  /** ISO 8601,UTC 午夜;无有效横截面时为 null */
+  snapshot_time: string | null;
+  requested_date: string | null;
+  n_quantiles: number;
+  items: FactorRankingSnapshotItem[];
+  total: number;
+  config_snapshot: Record<string, unknown>;
+}
+
+// ─── Financial text sentiment(Week 4,FRA-65)────────────────────────────────
+// 与后端 app/services/sentiment 契约一一对应,供后续 schema / API client / 前端复用。
+
+/** 情绪分类标签,对齐后端 SentimentLabel */
+export type SentimentLabel = 'positive' | 'neutral' | 'negative';
+
+/** 单条新闻标题/摘要,对齐后端 NewsItem */
+export interface NewsItem {
+  asset_id: string;
+  /** ISO 8601 publication timestamp;信号最早只能在该时间之后使用 */
+  published_at: string;
+  source: string;
+  headline: string;
+  summary?: string | null;
+  url?: string | null;
+  params: Record<string, unknown>;
+}
+
+/** 单条文本的分类结果,对齐后端 SentimentScore */
+export interface SentimentScore {
+  asset_id: string;
+  /** ISO 8601 publication timestamp;不得映射到更早交易日 */
+  published_at: string;
+  source: string;
+  headline: string;
+  summary?: string | null;
+  url?: string | null;
+  model_name: string;
+  prompt_version: string;
+  label: SentimentLabel;
+  /** 归一化到 [-1,1],负值 bearish,正值 bullish */
+  score: number;
+  /** 归一化到 [0,1] */
+  confidence: number;
+  raw_response?: Record<string, unknown> | null;
+  params: Record<string, unknown>;
+}
+
+/** 某资产某决策日的情绪聚合,对齐后端 SentimentSummary */
+export interface SentimentSummary {
+  asset_id: string;
+  /** ISO 8601,UTC 午夜;不早于聚合窗口内文本的 published_at */
+  signal_date: string;
+  window_start: string;
+  window_end: string;
+  model_name: string;
+  prompt_version: string;
+  /** news_count 为 0 时保持 null,不得 forward-fill */
+  score: number | null;
+  confidence: number | null;
+  news_count: number;
+  label_counts: Record<SentimentLabel, number>;
+  source: string;
+  params: Record<string, unknown>;
+}

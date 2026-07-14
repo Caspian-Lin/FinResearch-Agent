@@ -13,8 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.assets import router as assets_router
 from app.api.auth import router as auth_router
 from app.api.backtest import router as backtest_router
+from app.api.factors import router as factors_router
 from app.api.ohlcv import router as ohlcv_router
 from app.api.quality import router as quality_router
+from app.api.sentiment import router as sentiment_router
 from app.api.sync import router as sync_router
 from app.api.watchlists import router as watchlists_router
 from app.core.config import settings
@@ -48,6 +50,8 @@ app.include_router(quality_router)
 app.include_router(sync_router)
 app.include_router(watchlists_router)
 app.include_router(backtest_router)
+app.include_router(factors_router)
+app.include_router(sentiment_router)
 
 
 @app.get("/health", tags=["meta"])

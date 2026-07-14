@@ -39,6 +39,10 @@ from app.schemas.backtest import (
     BacktestListResponse,
     BacktestMetricsRead,
     BacktestRunRead,
+    ComparisonChildRead,
+    ComparisonCreateRequest,
+    ComparisonDetailRead,
+    ComparisonEnqueueResponse,
     EquityCurvePointRead,
     TradeRead,
 )
@@ -51,7 +55,9 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 BacktestQueue = Annotated[Queue, Depends(get_backtest_queue)]
 
 #: registry 策略白名单(API 层快速 422,不浪费 worker slot)。
-ALLOWED_STRATEGIES = frozenset({"buy_hold", "equal_weight", "ma_crossover", "momentum", "reversal"})
+ALLOWED_STRATEGIES = frozenset(
+    {"buy_hold", "equal_weight", "ma_crossover", "momentum", "reversal", "sentiment_tech"}
+)
 ALLOWED_REBALANCE = frozenset({"daily", "weekly", "monthly"})
 BACKTEST_JOB_TIMEOUT = 600
 BACKTEST_RESULT_TTL = 86400
@@ -215,3 +221,126 @@ def _get_owned_run(db: Session, run_id: uuid.UUID, user_id: uuid.UUID) -> Backte
     if run is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Backtest run not found.")
     return run
+
+
+# --- FRA-71: sentiment comparison endpoints ---------------------------------
+
+
+@router.post(
+    "/comparison",
+    response_model=ComparisonEnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Create + enqueue a sentiment vs technical comparison backtest",
+)
+def create_comparison(
+    payload: ComparisonCreateRequest,
+    db: DBSession,
+    current_user: CurrentUser,
+    queue: BacktestQueue,
+) -> ComparisonEnqueueResponse:
+    """Validate config, create parent run (``sentiment_comparison``), enqueue worker.
+
+    The worker runs technical-only and technical+sentiment strategies under
+    identical conditions and persists each as a child ``backtest`` run.
+    """
+    if payload.start > payload.end:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="start must be <= end")
+    if payload.rebalance not in ALLOWED_REBALANCE:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"rebalance must be one of {sorted(ALLOWED_REBALANCE)}",
+        )
+    if payload.price_field not in PRICE_FIELDS:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"price_field must be one of {PRICE_FIELDS}",
+        )
+
+    found = set(db.scalars(select(Asset.id).where(Asset.id.in_(payload.universe))).all())
+    missing = set(payload.universe) - found
+    if missing:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"assets not found: {sorted(str(m) for m in missing)}",
+        )
+
+    if payload.benchmark_asset_id is not None and db.get(Asset, payload.benchmark_asset_id) is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=f"benchmark asset {payload.benchmark_asset_id} not found",
+        )
+
+    config_json = {
+        "universe": [str(a) for a in payload.universe],
+        "start": payload.start.isoformat(),
+        "end": payload.end.isoformat(),
+        "strategy_name": "sentiment_comparison",
+        "initial_capital": payload.initial_capital,
+        "cost_bps": payload.cost_bps,
+        "rebalance": payload.rebalance,
+        "price_field": payload.price_field,
+        "benchmark": str(payload.benchmark_asset_id) if payload.benchmark_asset_id else None,
+        "model_name": payload.model_name,
+        "strategy_params": payload.strategy_params,
+        "include_sentiment_only": payload.include_sentiment_only,
+    }
+    run = BacktestRun(
+        user_id=current_user.id,
+        name=payload.name,
+        strategy_type="sentiment_comparison",
+        config_json=config_json,
+        benchmark_asset_id=payload.benchmark_asset_id,
+        start_date=payload.start,
+        end_date=payload.end,
+        price_field=payload.price_field,
+        status="pending",
+        run_kind="sentiment_comparison",
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    queue.enqueue(
+        "worker.tasks.backtest.run_comparison_job",
+        str(run.id),
+        job_timeout=BACKTEST_JOB_TIMEOUT,
+        result_ttl=BACKTEST_RESULT_TTL,
+    )
+    return ComparisonEnqueueResponse(run_id=run.id, status="pending")
+
+
+@router.get(
+    "/comparison/{run_id}",
+    response_model=ComparisonDetailRead,
+    summary="Get comparison results (parent + child runs)",
+)
+def get_comparison(
+    run_id: uuid.UUID, db: DBSession, current_user: CurrentUser
+) -> ComparisonDetailRead:
+    """Return the parent comparison run and all child runs' details + metrics.
+
+    A run owned by another user returns 404 (no existence leak).
+    """
+    run = _get_owned_run(db, run_id, current_user.id)
+
+    child_runs: list[ComparisonChildRead] = []
+    if run.result_json and "child_runs" in run.result_json:
+        for child_id_str in run.result_json["child_runs"]:
+            child_id = uuid.UUID(str(child_id_str))
+            child = db.get(BacktestRun, child_id)
+            if child is None or child.user_id != current_user.id:
+                continue
+            metrics = db.get(BacktestMetrics, child.id)
+            role = str(child.config_json.get("comparison_role", "unknown"))
+            child_runs.append(
+                ComparisonChildRead(
+                    role=role,
+                    run=BacktestRunRead.model_validate(child),
+                    metrics=BacktestMetricsRead.model_validate(metrics) if metrics else None,
+                )
+            )
+
+    return ComparisonDetailRead(
+        run=BacktestRunRead.model_validate(run),
+        children=child_runs,
+    )

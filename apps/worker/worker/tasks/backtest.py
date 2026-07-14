@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.backtest.execution import execute_backtest_run
+from app.services.sentiment.comparison_jobs import execute_comparison_run
 
 
 def run_backtest_job(run_id: str) -> dict[str, Any]:
@@ -26,3 +27,11 @@ def run_backtest_job(run_id: str) -> dict[str, Any]:
         置 failed + error_message 后 re-raise,RQ 记 exc_info)。
     """
     return execute_backtest_run(run_id)
+
+
+def run_comparison_job(run_id: str) -> dict[str, Any]:
+    """RQ entrypoint for sentiment comparison backtest (FRA-71).
+
+    Delegates to ``app.services.sentiment.comparison_jobs.execute_comparison_run``.
+    """
+    return execute_comparison_run(run_id)

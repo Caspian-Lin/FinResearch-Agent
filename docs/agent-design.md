@@ -43,10 +43,25 @@
 ## Safety Boundaries
 
 1. Agent 不直接连接真实交易接口。
-2. Agent 不输出“买入/卖出建议”作为确定性投资建议。
+2. Agent 不输出"买入/卖出建议"作为确定性投资建议。
 3. Agent 的策略代码必须通过模板或 sandbox 执行。
 4. 所有报告必须包含风险提示和局限性。
 5. 所有结论必须绑定数据区间、股票池和假设条件。
+
+### Week 4 补充:文本因子边界
+
+Factor Agent 在使用 sentiment / text factor 时,必须遵守
+[`sentiment-factor-methodology.md`](./sentiment-factor-methodology.md) 中的
+防前视约束:
+
+- **时间戳对齐**:`published_at` 映射到第一个 ≥ 它的交易日(`signal_date`),
+  绝不提前。Agent 不得绕过此映射(如直接使用 raw `published_at` 作为决策日)。
+- **NaN 不前填**:无新闻覆盖的单元格 = NaN,Agent 不得用 forward-fill 或 0 填充。
+- **可复现性声明**:Agent 使用 sentiment factor 时必须在报告中标注
+  `model_name`、`prompt_version`、`provider` 和数据窗口。
+- **分类漂移**:`sentiment_scores` 表的 `model_name` + `prompt_version` 是
+  分类结果可审计的唯一凭证;Agent 不得声称文本因子「改善」了收益,只能描述为
+  「在该窗口 / 该模型 / 该分类器下的历史对照结果」。
 
 ## Evaluation
 

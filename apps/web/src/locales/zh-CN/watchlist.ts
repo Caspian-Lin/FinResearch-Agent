@@ -21,6 +21,7 @@ const watchlist = {
     currency: '币种',
     updatedAt: '更新时间',
     exchange: '交易所',
+    source: '数据源',
     addedAt: '加入时间',
     actions: '操作',
   },
@@ -90,6 +91,18 @@ const watchlist = {
       exchange: {
         label: '交易所(可选)',
         placeholder: '例如 NASDAQ',
+      },
+      keyword: {
+        label: '关键词',
+        placeholder: '如 AAPL 或 苹果',
+      },
+      exchangeMulti: {
+        label: '交易所(可选)',
+        placeholder: '选择交易所',
+      },
+      source: {
+        label: '数据源(可选)',
+        placeholder: '全部数据源',
       },
     },
     search: {

@@ -13,88 +13,60 @@ raising.
 Daily-bar timestamps are normalized to UTC midnight of the trading day via
 :func:`_to_utc_midnight` so rows line up across sources and timezones. The
 ``retryer`` argument is injectable so tests can pass a no-wait retry policy.
+
+As of FRA-23 :class:`OhlcvBar` and the coercion/retry helpers live in
+:mod:`app.services.datasources.base` and are shared by every source adapter;
+they are re-exported here (under their original names) so existing callers —
+the upsert service and the ingestion tests — keep importing from this module
+unchanged. This module also exposes :func:`fetch_ohlcv`, the free-function form
+the yfinance adapter was originally written as; the pluggable
+:class:`~app.services.datasources.base.DataSource` wrapper sits in
+:mod:`app.services.datasources`.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import UTC, date, datetime
-from decimal import Decimal
+from datetime import date
 
 import pandas as pd
-import requests
 import yfinance as yf
-from tenacity import (
-    Retrying,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
+from tenacity import Retrying
+
+# Shared bar type + coercion/retry helpers (FRA-23). Re-exported here under the
+# historical names so this module's public surface is unchanged.
+from app.services.datasources.base import (
+    MAX_BACKOFF_SECONDS,
+    MAX_RETRY_ATTEMPTS,
+    RETRYABLE_EXCEPTIONS,
+    OhlcvBar,
+    build_default_retryer,
+    to_decimal,
+    to_int,
+    to_utc_midnight,
 )
 
-MAX_RETRY_ATTEMPTS = 4
-MAX_BACKOFF_SECONDS = 10
-RETRYABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
-    requests.exceptions.RequestException,
-    ConnectionError,
-    TimeoutError,
-)
+# Definitions moved to .datasources.base (FRA-23). Listed in __all__ so ruff
+# treats them as a public re-export (not unused imports) and existing imports
+# from this module — `OhlcvBar`, `RETRYABLE_EXCEPTIONS`, the private `_to_*`
+# aliases below, and `fetch_ohlcv` — keep working unchanged.
+__all__ = [
+    "MAX_BACKOFF_SECONDS",
+    "MAX_RETRY_ATTEMPTS",
+    "OhlcvBar",
+    "RETRYABLE_EXCEPTIONS",
+    "fetch_ohlcv",
+]
 
-
-@dataclass(frozen=True)
-class OhlcvBar:
-    """A single daily OHLCV bar normalized from a yfinance row.
-
-    ``time`` is tz-aware UTC at the trading-day midnight. ``close`` holds the
-    raw Close (``auto_adjust=False``); ``adjusted_close`` holds ``Adj Close``
-    when present. ``volume`` is ``None`` for instruments that don't report it.
-    """
-
-    time: datetime
-    open: Decimal
-    high: Decimal
-    low: Decimal
-    close: Decimal
-    adjusted_close: Decimal | None
-    volume: int | None
-
-
-def _to_utc_midnight(ts: pd.Timestamp | datetime) -> datetime:
-    """Return the trading day as a tz-aware UTC datetime at 00:00.
-
-    Daily bars are normalized to UTC midnight of the trading day so that the
-    same calendar day maps to the same row regardless of the source timezone.
-    """
-    d = ts.date()
-    return datetime(d.year, d.month, d.day, tzinfo=UTC)
-
-
-def _to_decimal(value: object) -> Decimal | None:
-    """Coerce a (possibly NaN) scalar to :class:`~decimal.Decimal` or ``None``."""
-    if pd.isna(value):
-        return None
-    return Decimal(str(value))
-
-
-def _to_int(value: object) -> int | None:
-    """Coerce a (possibly NaN) scalar to ``int`` or ``None``."""
-    if pd.isna(value):
-        return None
-    return int(value)
+# Backward-compatible private aliases — tests import ``_to_utc_midnight`` etc.
+_to_utc_midnight = to_utc_midnight
+_to_decimal = to_decimal
+_to_int = to_int
 
 
 def _default_retryer() -> Retrying:
-    """Build the default :class:`~tenacity.Retrying` policy.
-
-    Retries only :data:`RETRYABLE_EXCEPTIONS` with exponential backoff (capped
-    at :data:`MAX_BACKOFF_SECONDS`) for up to :data:`MAX_RETRY_ATTEMPTS` tries.
-    """
-    return Retrying(
-        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
-        wait=wait_exponential(multiplier=1, max=MAX_BACKOFF_SECONDS),
-        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
-        reraise=True,
-    )
+    """Build the default :class:`~tenacity.Retrying` policy (shared)."""
+    return build_default_retryer()
 
 
 def fetch_ohlcv(

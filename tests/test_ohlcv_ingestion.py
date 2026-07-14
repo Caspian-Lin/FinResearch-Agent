@@ -315,7 +315,9 @@ def test_sync_ohlcv_success_writes_bars_and_returns_result(
 
     import worker.tasks.ohlcv as task_mod
 
-    monkeypatch.setattr(task_mod, "fetch_ohlcv", lambda *a, **kw: bars)
+    monkeypatch.setattr(
+        task_mod, "get_data_source", lambda s: SimpleNamespace(fetch_ohlcv=lambda *a, **kw: bars)
+    )
 
     result = sync_ohlcv(str(asset.id), "2024-01-01", "2024-01-05", "yfinance")
 
@@ -337,7 +339,9 @@ def test_sync_ohlcv_empty_fetch_returns_success_no_data(
 
     import worker.tasks.ohlcv as task_mod
 
-    monkeypatch.setattr(task_mod, "fetch_ohlcv", lambda *a, **kw: [])
+    monkeypatch.setattr(
+        task_mod, "get_data_source", lambda s: SimpleNamespace(fetch_ohlcv=lambda *a, **kw: [])
+    )
 
     result = sync_ohlcv(str(asset.id), "2024-01-01", "2024-01-05", "yfinance")
 
@@ -373,7 +377,7 @@ def test_sync_ohlcv_fetch_failure_rolls_back(
 
     import worker.tasks.ohlcv as task_mod
 
-    monkeypatch.setattr(task_mod, "fetch_ohlcv", boom)
+    monkeypatch.setattr(task_mod, "get_data_source", lambda s: SimpleNamespace(fetch_ohlcv=boom))
 
     with pytest.raises(requests.exceptions.ConnectionError):
         sync_ohlcv(str(asset.id), "2024-01-01", "2024-01-05", "yfinance")

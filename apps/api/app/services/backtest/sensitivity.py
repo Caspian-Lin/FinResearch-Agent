@@ -30,7 +30,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import pandas as pd
@@ -62,6 +62,23 @@ DEFAULT_MOMENTUM_LOOKBACKS: tuple[int, ...] = (21, 63)
 DEFAULT_MOMENTUM_TOP_KS: tuple[int, ...] = (1, 3)
 #: Momentum rebalance 频率档(覆盖 issue 的「rebalance 至少一个小网格」)。
 DEFAULT_MOMENTUM_REBALANCES: tuple[str, ...] = ("daily", "monthly")
+
+# --- FRA-54 因子维度网格(§14 因子参数敏感性 + §11.3 第 5 条成本)-------------
+#: 每个因子类型的默认窗口档(issue:FRA-54)。momentum 21/63/126 ≈ 1M/3M/6M,
+#: rsi 7/14,volatility 20/63。
+DEFAULT_FACTOR_WINDOWS: Mapping[str, tuple[int, ...]] = {
+    "momentum": (21, 63, 126),
+    "rsi": (7, 14),
+    "volatility": (20, 63),
+}
+#: top_k 档(做多最强 top_k 只等权)。
+DEFAULT_FACTOR_TOP_KS: tuple[int, ...] = (1, 3)
+#: quantile 层档(默认空 = 只用 top_k;传如 (5,) 启用最高 quintile 层多头)。
+DEFAULT_FACTOR_QUANTILES: tuple[int, ...] = ()
+#: quantile 模式的分层数(仅 ``quantiles`` 非空时生效)。
+DEFAULT_FACTOR_N_QUANTILES: int = 5
+#: 因子 sweep 的 rebalance 频率档(覆盖 daily / weekly / monthly)。
+DEFAULT_FACTOR_REBALANCES: tuple[str, ...] = ("daily", "weekly", "monthly")
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +196,86 @@ def momentum_configs(
                             cost_bps=float(cost),
                         )
                     )
+    return configs
+
+
+def factor_sensitivity_configs(
+    base: BacktestConfig,
+    *,
+    factors: Sequence[str] = ("momentum", "rsi", "volatility"),
+    windows: Mapping[str, Sequence[int]] | None = None,
+    top_ks: Sequence[int] = DEFAULT_FACTOR_TOP_KS,
+    quantiles: Sequence[int] = DEFAULT_FACTOR_QUANTILES,
+    n_quantiles: int = DEFAULT_FACTOR_N_QUANTILES,
+    rebalances: Sequence[str] = DEFAULT_FACTOR_REBALANCES,
+    cost_bands: Sequence[float] = DEFAULT_COST_BANDS,
+) -> list[BacktestConfig]:
+    """因子敏感性网格(FRA-54):``factor × window × (top_k | quantile 层) × rebalance × cost``。
+
+    把 FRA-35 的策略参数 sweep 扩展到因子维度:每个 (因子, 窗口) 组合再用
+    top_k(或 quantile 层)选股、rebalance 频率、交易成本展开成网格点。所有点
+    共享同一份 prices(:func:`run_sweep` 复用),点间可比。
+
+    * top_k 模式(默认):``strategy_params={"factor", "window", "top_k"}``,
+      做多因子值最大的 ``top_k`` 只等权。
+    * quantile 模式(``quantiles`` 非空时):``strategy_params={"factor", "window",
+      "quantile", "n_quantiles"}``,做多指定分位层(1=最低, N=最高)等权。
+
+    非法组合过滤(验收第 1 条):``window <= 0``、``top_k <= 0``、
+    ``quantile`` 不在 ``[1, n_quantiles]``、因子不在 ``windows`` 映射中的组合跳过。
+
+    Args:
+        base: 基础 config(universe / start / end / price_field 取自它);
+            其 ``strategy_name`` 必须为 ``factor``。
+        factors: 因子维度(默认 momentum / rsi / volatility)。
+        windows: 每个因子的窗口档映射;``None`` 用 :data:`DEFAULT_FACTOR_WINDOWS`。
+        top_ks: top_k 档(默认 1 / 3)。
+        quantiles: quantile 层档(默认空);非空时与 top_k 并行展开。
+        n_quantiles: quantile 模式分层数(默认 5)。
+        rebalances: rebalance 频率档(默认 daily / weekly / monthly)。
+        cost_bands: 交易成本档(默认 0 / 5 / 10 / 25 bps)。
+
+    Raises:
+        ValueError: ``base.strategy_name`` 不是 ``factor``。
+    """
+    _require_strategy(base, "factor", "factor_sensitivity_configs")
+    win_map = windows if windows is not None else DEFAULT_FACTOR_WINDOWS
+    configs: list[BacktestConfig] = []
+    for fac in factors:
+        for window in win_map.get(fac, ()):
+            if window <= 0:
+                continue
+            for rb in rebalances:
+                for cost in cost_bands:
+                    # top_k 模式
+                    for tk in top_ks:
+                        if tk <= 0:
+                            continue
+                        configs.append(
+                            dataclasses.replace(
+                                base,
+                                strategy_params={"factor": fac, "window": window, "top_k": tk},
+                                rebalance=RebalanceFreq(rb),
+                                cost_bps=float(cost),
+                            )
+                        )
+                    # quantile 层模式
+                    for q in quantiles:
+                        if not (1 <= q <= n_quantiles):
+                            continue
+                        configs.append(
+                            dataclasses.replace(
+                                base,
+                                strategy_params={
+                                    "factor": fac,
+                                    "window": window,
+                                    "quantile": q,
+                                    "n_quantiles": n_quantiles,
+                                },
+                                rebalance=RebalanceFreq(rb),
+                                cost_bps=float(cost),
+                            )
+                        )
     return configs
 
 
@@ -347,6 +444,7 @@ def persist_sweep(
     points: Sequence[SweepPoint],
     name_prefix: str,
     benchmark_asset_id: uuid.UUID | None = None,
+    run_kind: str | None = None,
 ) -> list[uuid.UUID]:
     """把每个 :class:`SweepPoint` 写成一个 ``BacktestRun(run_kind='sensitivity')``
     + 1:1 ``BacktestMetrics``,内部 commit。
@@ -359,11 +457,13 @@ def persist_sweep(
         db: 已开启的 SQLAlchemy session(本函数末尾 ``commit``)。
         user_id: 归属用户。
         base: sweep 的基础 config(universe / start / end / price_field / rebalance 取自它)。
-        strategy_name: ``ma_crossover`` 或 ``momentum``。
+        strategy_name: ``ma_crossover`` / ``momentum`` / ``factor``(后者 → factor_sensitivity)。
         grid: 完整网格规格(写入每个 run 的 ``config_json.sweep.grid``,可复现)。
         points: :func:`run_sweep` 输出。
         name_prefix: run 名称前缀(便于按 sweep 分组 / 清理)。
         benchmark_asset_id: 可选 benchmark 资产(写入 ``run.benchmark_asset_id``)。
+        run_kind: 显式 ``run_kind``;``None`` 时按 strategy 推断(``factor`` →
+            ``factor_sensitivity``,其余 → ``sensitivity``),必须命中 RUN_KINDS。
 
     Returns:
         新建的 run id 列表(顺序与 ``points`` 一致)。
@@ -371,8 +471,17 @@ def persist_sweep(
     Raises:
         ValueError: ``strategy_name`` 不是 ``ma_crossover`` / ``momentum``。
     """
-    if strategy_name not in {"ma_crossover", "momentum"}:
-        raise ValueError(f"persist_sweep supports ma_crossover / momentum, got {strategy_name!r}")
+    if strategy_name not in {"ma_crossover", "momentum", "factor"}:
+        raise ValueError(
+            f"persist_sweep supports ma_crossover / momentum / factor, got {strategy_name!r}"
+        )
+    resolved_run_kind = (
+        run_kind
+        if run_kind is not None
+        else ("factor_sensitivity" if strategy_name == "factor" else "sensitivity")
+    )
+    if resolved_run_kind not in RUN_KINDS:
+        raise ValueError(f"run_kind must be one of {RUN_KINDS}, got {resolved_run_kind!r}")
 
     run_ids: list[uuid.UUID] = []
     for p in points:
@@ -399,7 +508,7 @@ def persist_sweep(
             end_date=base.end,
             price_field=base.price_field.value,
             status="success",
-            run_kind=RUN_KINDS[1],  # "sensitivity"
+            run_kind=resolved_run_kind,
         )
         db.add(run)
         db.flush()  # 取 run.id 供 1:1 metrics 引用

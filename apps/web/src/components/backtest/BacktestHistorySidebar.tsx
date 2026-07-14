@@ -9,7 +9,7 @@
  * the dashboard + watchlist sidebars) so all three sidebars look identical.
  */
 import { Button, Empty, Menu, Spin, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { HistoryOutlined, PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 
@@ -21,19 +21,27 @@ const { Text } = Typography;
 export interface BacktestHistorySidebarProps {
   history: BacktestRunRead[];
   loading: boolean;
+  activeKey?: 'new' | 'history';
   /** id of the run currently open in the main area (for highlight), or null. */
   selectedRunId: string | null;
   onOpenRun: (runId: string) => void;
-  /** Scroll/focus the config form to start a new run. */
+  /** Open the new-run route. */
   onNewRun: () => void;
+  /** Open the history route without selecting a specific run. */
+  onOpenHistory?: () => void;
+  /** Create route uses the same sidebar shell without loading recent runs. */
+  showHistory?: boolean;
 }
 
 export function BacktestHistorySidebar({
   history,
   loading,
+  activeKey = 'history',
   selectedRunId,
   onOpenRun,
   onNewRun,
+  onOpenHistory,
+  showHistory = true,
 }: BacktestHistorySidebarProps) {
   const { t } = useTranslation();
   const { mode } = useResearchTheme();
@@ -44,37 +52,53 @@ export function BacktestHistorySidebar({
         {t('backtest:history.title')}
       </Text>
 
-      <Button block type="primary" icon={<PlusOutlined />} onClick={onNewRun}>
+      <Button
+        block
+        type={activeKey === 'new' ? 'primary' : 'default'}
+        icon={<PlusOutlined />}
+        onClick={onNewRun}
+      >
         {t('backtest:run.new')}
       </Button>
 
-      <div className="sidebar-list">
-        {loading ? (
-          <Spin />
-        ) : history.length === 0 ? (
-          <Empty description={t('backtest:history.empty')} />
-        ) : (
-          <Menu
-            mode="vertical"
-            theme={mode}
-            selectedKeys={selectedRunId ? [selectedRunId] : []}
-            items={history.map((r) => ({
-              key: r.id,
-              label: (
-                <div className="sidebar-item">
-                  <span className="sidebar-item-symbol">{r.name}</span>
-                  <span className="sidebar-item-name">
-                    {t(`backtest:status.${r.status}`, { defaultValue: r.status })}
-                    {' · '}
-                    {dayjs(r.created_at).format('YYYY-MM-DD')}
-                  </span>
-                </div>
-              ),
-              onClick: () => onOpenRun(r.id),
-            }))}
-          />
-        )}
-      </div>
+      <Button
+        block
+        type={activeKey === 'history' ? 'primary' : 'default'}
+        icon={<HistoryOutlined />}
+        onClick={onOpenHistory}
+      >
+        {t('backtest:history.open')}
+      </Button>
+
+      {showHistory && (
+        <div className="sidebar-list">
+          {loading ? (
+            <Spin />
+          ) : history.length === 0 ? (
+            <Empty description={t('backtest:history.empty')} />
+          ) : (
+            <Menu
+              mode="vertical"
+              theme={mode}
+              selectedKeys={selectedRunId ? [selectedRunId] : []}
+              items={history.map((r) => ({
+                key: r.id,
+                label: (
+                  <div className="sidebar-item">
+                    <span className="sidebar-item-symbol">{r.name}</span>
+                    <span className="sidebar-item-name">
+                      {t(`backtest:status.${r.status}`, { defaultValue: r.status })}
+                      {' · '}
+                      {dayjs(r.created_at).format('YYYY-MM-DD')}
+                    </span>
+                  </div>
+                ),
+                onClick: () => onOpenRun(r.id),
+              }))}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

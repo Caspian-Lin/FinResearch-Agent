@@ -40,6 +40,12 @@ interface PreflightSyncModalProps {
   source: string;
   start: string;
   end: string;
+  /**
+   * i18n namespace whose `prefflight.*` subtree holds the copy (default
+   * `'backtest'`). The factor page passes `'factor'` so the re-run hint says
+   * "analysis" rather than "backtest"; the sync machinery is otherwise identical.
+   */
+  ns?: string;
   /** Close (cancel / done / failed) — parent closes the modal + resets phase. */
   onCancel: () => void;
 }
@@ -59,10 +65,15 @@ export function PreflightSyncModal({
   source,
   start,
   end,
+  ns = 'backtest',
   onCancel,
 }: PreflightSyncModalProps) {
   const { t } = useTranslation();
   const [messageApi, messageContext] = message.useMessage();
+  /** Resolve a preflight copy key under the chosen namespace (`<ns>:preflight.*`).
+   *  Plain fn (not memoized): handleSync below is a plain handler too, so neither
+   *  sits in a useCallback dependency array that would need tp to be stable. */
+  const tp = (key: string, opts?: Record<string, unknown>) => t(`${ns}:preflight.${key}`, opts);
   const [phase, setPhase] = useState<Phase>('confirm');
   const [jobs, setJobs] = useState<JobState[]>([]);
 
@@ -86,7 +97,7 @@ export function PreflightSyncModal({
   const doneCount = jobs.filter((j) => j.status === 'success').length;
   const failedJobs = jobs.filter((j) => j.status === 'failed' || j.status === 'success_no_data');
 
-  const handleSync = useCallback(() => {
+  const handleSync = () => {
     setPhase('syncing');
     const initial: JobState[] = missing.map((m) => ({
       assetId: m.assetId,
@@ -109,7 +120,7 @@ export function PreflightSyncModal({
               error:
                 r.reason instanceof ApiError
                   ? (r.reason.detail ?? r.reason.code)
-                  : t('backtest:preflight.enqueueFailed'),
+                  : tp('enqueueFailed'),
             }
           : j;
       });
@@ -120,7 +131,7 @@ export function PreflightSyncModal({
       setJobs(next);
       if (enqueued.length === 0) {
         setPhase('failed');
-        messageApi.error(t('backtest:preflight.syncFailed'));
+        messageApi.error(tp('syncFailed'));
         return;
       }
 
@@ -160,15 +171,15 @@ export function PreflightSyncModal({
             if (allSuccess) {
               clearTimer();
               setPhase('done');
-              messageApi.success(t('backtest:preflight.syncDone'));
+              messageApi.success(tp('syncDone'));
             } else if (anyFailed && allTerminal) {
               clearTimer();
               setPhase('failed');
-              messageApi.error(t('backtest:preflight.syncFailed'));
+              messageApi.error(tp('syncFailed'));
             } else if (polls >= MAX_POLLS) {
               clearTimer();
               setPhase('failed');
-              messageApi.warning(t('backtest:preflight.syncTimeout'));
+              messageApi.warning(tp('syncTimeout'));
             } else {
               timerRef.current = setTimeout(() => {
                 timerRef.current = null;
@@ -180,7 +191,7 @@ export function PreflightSyncModal({
             if (polls >= MAX_POLLS) {
               clearTimer();
               setPhase('failed');
-              messageApi.warning(t('backtest:preflight.syncTimeout'));
+              messageApi.warning(tp('syncTimeout'));
             } else {
               timerRef.current = setTimeout(() => {
                 timerRef.current = null;
@@ -191,7 +202,7 @@ export function PreflightSyncModal({
       };
       pollOnce();
     });
-  }, [missing, start, end, source, clearTimer, messageApi, t]);
+  };
 
   const pct = jobs.length > 0 ? Math.round((doneCount / jobs.length) * 100) : 0;
   const busy = phase === 'syncing';
@@ -205,14 +216,14 @@ export function PreflightSyncModal({
   return (
     <Modal
       open={open}
-      title={t('backtest:preflight.title')}
+      title={tp('title')}
       onCancel={onCancel}
       footer={
         phase === 'confirm' ? (
           <>
             <Button onClick={onCancel}>{t('common:actions.cancel')}</Button>
             <Button type="primary" onClick={() => handleSync()}>
-              {t('backtest:preflight.syncButton')}
+              {tp('syncButton')}
             </Button>
           </>
         ) : phase === 'syncing' ? null : (
@@ -225,19 +236,19 @@ export function PreflightSyncModal({
       {messageContext}
       {phase === 'confirm' && (
         <div>
-          <Text>{t('backtest:preflight.body', { source, window: `${start} ~ ${end}` })}</Text>
+          <Text>{tp('body', { source, window: `${start} ~ ${end}` })}</Text>
           <ul style={{ marginTop: 12 }}>
             {missing.map((m) => (
               <li key={m.assetId}>
                 <Text strong>{m.symbol}</Text>{' '}
                 <Text type="secondary">
-                  {t('backtest:preflight.coverage', { pct: (m.coverage * 100).toFixed(0) })}
+                  {tp('coverage', { pct: (m.coverage * 100).toFixed(0) })}
                 </Text>
               </li>
             ))}
           </ul>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {t('backtest:preflight.hint')}
+            {tp('hint')}
           </Text>
         </div>
       )}
@@ -251,7 +262,7 @@ export function PreflightSyncModal({
                 <Text type="secondary">
                   {j.status
                     ? t(`backtest:preflight.job.${j.status}`)
-                    : t('backtest:preflight.job.queued')}
+                    : tp('job.queued')}
                 </Text>
               </li>
             ))}
@@ -262,19 +273,19 @@ export function PreflightSyncModal({
         <Alert
           type="success"
           showIcon
-          message={t('backtest:preflight.syncDone')}
-          description={t('backtest:preflight.rerunHint')}
+          message={tp('syncDone')}
+          description={tp('rerunHint')}
         />
       )}
       {phase === 'failed' && (
         <Alert
           type="error"
           showIcon
-          message={t('backtest:preflight.syncFailed')}
+          message={tp('syncFailed')}
           description={
             failedJobs.length > 0
               ? failedJobs.map((j) => `${j.symbol}: ${j.error ?? ''}`).join('; ')
-              : t('backtest:preflight.syncTimeout')
+              : tp('syncTimeout')
           }
         />
       )}

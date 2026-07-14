@@ -19,6 +19,15 @@ dependencies = [
   "python-dotenv>=1.0.0",
 ]
 
+[project.optional-dependencies]
+# Domestic A-share data sources (FRA-23). Optional: install with
+# `uv sync --extra data-cn`. The worker fetches from akshare/tushare; install
+# these only on workers that actually sync A-share data.
+data-cn = [
+  "akshare>=1.12",
+  "tushare>=1.4",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

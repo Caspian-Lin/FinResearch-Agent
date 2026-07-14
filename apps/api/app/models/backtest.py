@@ -38,8 +38,25 @@ BACKTEST_STATUSES = ("pending", "running", "success", "failed")
 SERIES_KINDS = ("strategy", "benchmark")
 #: allowed values for ``BacktestRun.run_kind`` (FRA-35) — ``backtest`` is a single
 #: triggered run (POST /backtest); ``sensitivity`` marks each child run produced by a
-#: parameter/cost sweep so sweep runs are queryable apart from regular backtests.
-RUN_KINDS = ("backtest", "sensitivity")
+#: strategy parameter/cost sweep; ``factor_sensitivity`` (FRA-54) marks each child run
+#: produced by a *factor* parameter/cost sweep (factor window × top_k/quantile ×
+#: rebalance × cost). Both sweep kinds are queryable apart from regular backtests.
+#: FRA-57 adds the three *factor worker* kinds — ``factor_compute`` (batch factor
+#: value computation), ``factor_quantile`` (stratified quantile backtest), and
+#: ``factor_sweep`` (factor sensitivity grid) — each one async-enqueued job whose
+#: structured result lands in ``result_json``; they share the run state machine.
+RUN_KINDS = (
+    "backtest",
+    "sensitivity",
+    "factor_sensitivity",
+    "factor_compute",
+    "factor_quantile",
+    "factor_sweep",
+    "sentiment_sync_news",
+    "sentiment_classify",
+    "sentiment_factor",
+    "sentiment_comparison",
+)
 
 
 class BacktestRun(Base):
@@ -72,12 +89,18 @@ class BacktestRun(Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     # 失败原因(FRA-37):success / running 时为 NULL;failed 时填异常摘要(≤500 字符)。
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # run_kind(FRA-35):``backtest`` = 单次触发回测;``sensitivity`` = 参数/成本 sweep
-    # 产出的子 run。默认 ``backtest`` —— 既有 run 与 POST /backtest 路径不受影响,
-    # sweep 入库时显式置 ``sensitivity``。
+    # run_kind(FRA-35):``backtest`` = 单次触发回测;``sensitivity`` = 策略参数/成本
+    # sweep 产出的子 run;``factor_sensitivity``(FRA-54)= 因子参数/成本 sweep 产出的
+    # 子 run。默认 ``backtest`` —— 既有 run 与 POST /backtest 路径不受影响,sweep
+    # 入库时显式置 ``sensitivity`` / ``factor_sensitivity``。String(32) 容纳最长值。
     run_kind: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="backtest", server_default="backtest"
+        String(32), nullable=False, default="backtest", server_default="backtest"
     )
+    # 结构化结果快照(FRA-57):factor worker 三类异步任务(factor_compute /
+    # factor_quantile / factor_sweep)的成功结果序列化进此列(行数 / 分层净值序列 /
+    # 敏感性 summary)。普通回测 run 不写(NULL)。nullable —— 既有 run 与 pending/
+    # running 行不受影响;success 后由 worker 填。
+    result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

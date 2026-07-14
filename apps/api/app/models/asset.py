@@ -31,6 +31,17 @@ class Asset(Base):
     exchange: Mapped[str] = mapped_column(String(64), nullable=False)
     asset_type: Mapped[str] = mapped_column(String(32), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
+    # Preferred data source for this asset (FRA-78): the source key the worker
+    # uses by default when syncing OHLCV. Lives on the asset so the watchlist
+    # can show "which source feeds this instrument" without a separate join, and
+    # so seeding can pin A-shares→akshare/tushare, overseas→yfinance. The
+    # OHLCV table still allows other sources to coexist per its (asset_id, time,
+    # source) key — this is only the *default/preferred* one.
+    data_source: Mapped[str] = mapped_column(String(32), nullable=False, default="yfinance")
+    # Listing lifecycle (FRA-78): active / suspended / delisted. Lets the dynamic
+    # universe sync (FRA-79) mark delisted/suspended instruments in place rather
+    # than deleting them (preserving historical OHLCV + watchlist references).
+    list_status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

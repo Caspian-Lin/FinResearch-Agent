@@ -32,6 +32,16 @@ EXCHANGE_CALENDAR_MAP: dict[str, str] = {
     "ARCA": "XNYS",
     "XNYS": "XNYS",
     "XNAS": "XNAS",
+    # A-shares (FRA-79 universe): exchange_calendars ships no SZSE/BSE
+    # calendar, so all three mainland exchanges map to XSHG (SSE). A-share
+    # calendars share the same holiday schedule in practice (the joint
+    # SSE/SZSE/BSE trading calendar), so coverage / missing-session math stays
+    # accurate for all of them.
+    "SSE": "XSHG",
+    "SZSE": "XSHG",
+    "BSE": "XSHG",
+    # Hong Kong (FRA-79 universe).
+    "HKEX": "XHKG",
 }
 
 # Computed once at import; the catalog of all ~102 exchange_calendars codes.

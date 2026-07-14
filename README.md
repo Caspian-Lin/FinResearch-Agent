@@ -28,6 +28,8 @@ The UI ships in **English** and **简体中文**; switch at any time from the he
 - [Disclaimer](#disclaimer)
 - [Week 1 Progress](#week-1-progress)
 - [Week 2 Progress](#week-2-progress)
+- [Week 3 Progress](#week-3-progress)
+- [Week 4 Progress](#week-4-progress)
 - [Roadmap / Next Steps](#roadmap--next-steps)
 
 ---
@@ -260,6 +262,36 @@ See [`docs/week2-progress.md`](./docs/week2-progress.md) and
 anti-cheat audit, train→forward validation boundary, cost assumptions, and known
 limitations.
 
+### Week 3 Factor Research Demo
+
+After syncing `NVDA`, `AMD`, and `QQQ`, open the Factor Research page and run the
+same explicit window, for example `2024-01-02` to `2024-12-31`, with adjusted
+prices. Start with `momentum_63`: render IC statistics, then run the quintile
+backtest and sensitivity heatmap. Repeat IC / quantile with `macd_hist` or
+`rsi_14`. The factor
+flow records its universe, date window, source, factor, horizon / quantile /
+sweep grid, price field, and cost assumptions in the API response or async
+`config_json`.
+
+See [`docs/week3-progress.md`](./docs/week3-progress.md) and
+[`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md)
+for the reproducible steps, anti-cheat audit, and limitations.
+
+### Week 4 Sentiment Research Demo
+
+After syncing `NVDA`, `AMD`, and `QQQ`, open the Sentiment Research page. In the
+**News** tab, sync news for the same explicit window (e.g. `2024-01-02` to
+`2024-06-30`). In the **Scores** tab, classify with the fixture classifier. In the
+**Factor** tab, compute the daily sentiment factor and view the per-asset chart.
+Finally, in the **Comparison** tab, run a technical-only vs technical+sentiment
+backtest (overlay or combined mode) and compare equity curves and metrics. The
+comparison run records its full universe, window, strategy mode, sentiment
+threshold, cost, and classifier/model version in `config_json`.
+
+See [`docs/week4-progress.md`](./docs/week4-progress.md) and
+[`docs/sentiment-factor-methodology.md`](./docs/sentiment-factor-methodology.md)
+for the reproducible steps, anti-cheat audit, and limitations.
+
 ## Data Sources, Adjusted Prices & Quality Checks
 
 Be explicit about what the data is and isn't:
@@ -334,19 +366,59 @@ look-ahead protection, survivorship-bias limitations, train→forward validation
 cost model assumptions, and reproducibility requirements. Demo steps and
 acceptance notes live in [`docs/week2-progress.md`](./docs/week2-progress.md).
 
+## Week 3 Progress
+
+Week 3 — **Factor Research & Parameter Sensitivity** — is implemented as a
+reproducible factor workflow: factor computation and storage, IC statistics,
+cross-sectional ranking snapshots, stratified quantile backtests, factor /
+window / cost sensitivity, async worker jobs, and a Factor Research UI with
+charts, ranking table, and heatmap.
+
+The methodology and anti-cheat audit are documented in
+[`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
+Demo steps, acceptance notes, Week 3 deliverable mapping, limitations, and next
+week scope live in [`docs/week3-progress.md`](./docs/week3-progress.md).
+
+## Week 4 Progress
+
+Week 4 — **Financial Text & Sentiment Factor** — is implemented as a reproducible
+text-factor pipeline: news headline/summary ingestion, sentiment classification
+(fixture rule + LLM), daily sentiment factor with anti-look-ahead `published_at →
+signal_date` mapping, technical-only vs technical+sentiment comparison backtest
+(overlay / combined), async worker jobs, and a Sentiment Research UI with news /
+scores / factor / comparison tabs.
+
+The methodology, 11-row anti-cheat audit table (implementation + test evidence),
+and text-factor limitations (LLM drift, news coverage bias, overfitting) are
+documented in
+[`docs/sentiment-factor-methodology.md`](./docs/sentiment-factor-methodology.md).
+Demo steps, acceptance notes, Week 4 deliverable mapping, limitations, and next
+week scope live in [`docs/week4-progress.md`](./docs/week4-progress.md).
+
 ## Roadmap / Next Steps
 
 - **Week 1** ✅ Data foundation & dashboard skeleton
 - **Week 2** ✅ Backtesting engine & risk metrics (Buy&Hold, equal-weight, MA,
   momentum; Sharpe / max drawdown / volatility / turnover vs benchmark)
-- **Week 3** — Factor research & parameter sensitivity
-- **Week 4** — Financial text & sentiment factor
+- **Week 3** ✅ Factor research & parameter sensitivity (momentum / reversal /
+  MACD histogram / RSI / volatility factors; IC + ICIR / t-stat / p-value significance; stratified
+  quantile backtest with top−bottom spread; ranking snapshot table; factor ×
+  window × cost sensitivity grid; async worker jobs; factor research UI with IC
+  chart / ranking table / quantile curves / heatmap). Methodology in
+  [`docs/factor-research-methodology.md`](./docs/factor-research-methodology.md).
+- **Week 4** ✅ Financial text & sentiment factor (news ingestion via provider;
+  sentiment classification with fixture rule + LLM classifiers; daily sentiment
+  factor with anti-look-ahead timestamp mapping; technical-only vs
+  technical+sentiment comparison backtest; sentiment research UI with news /
+  scores / factor / comparison tabs). Methodology in
+  [`docs/sentiment-factor-methodology.md`](./docs/sentiment-factor-methodology.md).
 - **Week 5** — LLM agent research workflow
 - **Week 6** — Report generation & application materials
 
 Design docs in [`docs/`](./docs/): `architecture.md`, `database-schema.md`,
-`agent-design.md`, `backtesting-methodology.md`, `week1-progress.md`,
-`week2-progress.md`.
+`agent-design.md`, `backtesting-methodology.md`, `factor-research-methodology.md`,
+`sentiment-factor-methodology.md`, `week1-progress.md`, `week2-progress.md`,
+`week3-progress.md`, `week4-progress.md`.
 
 ## License
 

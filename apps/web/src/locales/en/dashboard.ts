@@ -60,6 +60,13 @@ const dashboard = {
     chartType: 'Chart type',
   },
 
+  // Data-source picker options (FRA-23). akshare/tushare serve A-shares only.
+  sources: {
+    yfinance: 'yfinance',
+    akshare: 'AkShare',
+    tushare: 'Tushare',
+  },
+
   priceChart: {
     title: 'Price',
     field: {

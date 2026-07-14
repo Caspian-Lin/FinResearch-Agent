@@ -14,6 +14,7 @@ from collections.abc import Iterator
 import pytest
 from app.db.session import SessionLocal, get_db
 from app.main import app
+from app.models.asset import Asset
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -233,3 +234,135 @@ def test_get_asset_malformed_uuid_returns_422(client: TestClient) -> None:
     """A non-UUID path segment fails UUID validation with 422, not 404."""
     resp = client.get("/assets/not-a-uuid")
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /assets — search filters (FRA-80)
+# ---------------------------------------------------------------------------
+# Each test seeds its own FRA7TEST rows directly (controlling data_source) and
+# pairs the new filter with a name prefix so the assertion is independent of
+# any seed rows the host DB may already hold (the exchange=NASDAQ pitfall from
+# FRA-61).
+
+
+def test_list_assets_name_partial_match(client: TestClient, db_session: Session) -> None:
+    """``name`` is a case-insensitive partial match (FRA-80)."""
+    db_session.add(
+        Asset(
+            symbol="FRA7TEST-NAME-1",
+            exchange="NASDAQ",
+            name="Apple Banana Corp",
+            asset_type="stock",
+            currency="USD",
+            data_source="yfinance",
+        )
+    )
+    db_session.add(
+        Asset(
+            symbol="FRA7TEST-NAME-2",
+            exchange="NYSE",
+            name="Cherry Durian Inc",
+            asset_type="stock",
+            currency="USD",
+            data_source="yfinance",
+        )
+    )
+    db_session.commit()
+
+    resp = client.get("/assets", params={"name": "banana"})
+    assert resp.status_code == 200
+    symbols = {it["symbol"] for it in resp.json()["items"]}
+    assert "FRA7TEST-NAME-1" in symbols
+    assert "FRA7TEST-NAME-2" not in symbols
+
+
+def test_list_assets_source_filter(client: TestClient, db_session: Session) -> None:
+    """``source`` filters by data_source, scoped by a name prefix (FRA-80)."""
+    db_session.add(
+        Asset(
+            symbol="FRA7TEST-SRC-AK",
+            exchange="SSE",
+            name="FRA7TEST Source A-share",
+            asset_type="stock",
+            currency="CNY",
+            data_source="akshare",
+        )
+    )
+    db_session.add(
+        Asset(
+            symbol="FRA7TEST-SRC-YF",
+            exchange="NASDAQ",
+            name="FRA7TEST Source yfinance",
+            asset_type="stock",
+            currency="USD",
+            data_source="yfinance",
+        )
+    )
+    db_session.commit()
+
+    resp = client.get("/assets", params={"source": "akshare", "name": "FRA7TEST Source"})
+    assert resp.status_code == 200
+    page = resp.json()
+    assert page["total"] == 1
+    assert page["items"][0]["symbol"] == "FRA7TEST-SRC-AK"
+
+
+def test_list_assets_exchanges_multi_select(client: TestClient, db_session: Session) -> None:
+    """``exchanges`` is a multi-select OR within the set, scoped by name (FRA-80)."""
+    for sym, exch, ds in [
+        ("FRA7TEST-EX-NA", "NASDAQ", "yfinance"),
+        ("FRA7TEST-EX-NY", "NYSE", "yfinance"),
+        ("FRA7TEST-EX-SS", "SSE", "akshare"),
+    ]:
+        db_session.add(
+            Asset(
+                symbol=sym,
+                exchange=exch,
+                name=f"FRA7TEST Exch {sym.split('-')[-1]}",
+                asset_type="stock",
+                currency="USD" if ds == "yfinance" else "CNY",
+                data_source=ds,
+            )
+        )
+    db_session.commit()
+
+    resp = client.get("/assets", params={"exchanges": ["NASDAQ", "NYSE"], "name": "FRA7TEST Exch"})
+    assert resp.status_code == 200
+    page = resp.json()
+    assert page["total"] == 2
+    assert {it["symbol"] for it in page["items"]} == {"FRA7TEST-EX-NA", "FRA7TEST-EX-NY"}
+
+
+def test_list_assets_keyword_matches_symbol_or_name(
+    client: TestClient, db_session: Session
+) -> None:
+    """``keyword`` is a case-insensitive partial match on symbol OR name (FRA-80)."""
+    db_session.add(
+        Asset(
+            symbol="FRA7TEST-KW-SYM",
+            exchange="NASDAQ",
+            name="Generic Name One",
+            asset_type="stock",
+            currency="USD",
+            data_source="yfinance",
+        )
+    )
+    db_session.add(
+        Asset(
+            symbol="FRA7TEST-KW-XYZ",
+            exchange="NYSE",
+            name="Distinctive Keyword Co",
+            asset_type="stock",
+            currency="USD",
+            data_source="yfinance",
+        )
+    )
+    db_session.commit()
+
+    by_symbol = client.get("/assets", params={"keyword": "FRA7TEST-KW-SYM"})
+    assert by_symbol.status_code == 200
+    assert any(it["symbol"] == "FRA7TEST-KW-SYM" for it in by_symbol.json()["items"])
+
+    by_name = client.get("/assets", params={"keyword": "Distinctive Keyword"})
+    assert by_name.status_code == 200
+    assert any(it["symbol"] == "FRA7TEST-KW-XYZ" for it in by_name.json()["items"])

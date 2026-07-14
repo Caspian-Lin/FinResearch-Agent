@@ -98,6 +98,11 @@ export const apiClient: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
   headers: { 'Content-Type': 'application/json' },
   timeout: 15_000,
+  // Serialize array query params as repeat (`universe=a&universe=b`) instead of
+  // axios's default brackets (`universe[]=a&universe[]=b`). FastAPI's
+  // `Query(list[...])` only binds the repeat form; the bracket form left the IC
+  // endpoint's `universe` empty → `min_length=2` → 422 validation error.
+  paramsSerializer: { indexes: null },
 });
 
 apiClient.interceptors.request.use((config) => {

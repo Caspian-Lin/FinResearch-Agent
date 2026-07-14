@@ -27,9 +27,11 @@ import {
   Modal,
   Popconfirm,
   Radio,
+  Select,
   Space,
   Spin,
   Table,
+  Tag,
   Typography,
   message,
 } from 'antd';
@@ -46,6 +48,41 @@ import { useSelectionStore } from '@/store/selection';
 import type { AssetRead, WatchlistItemRead } from '@/types/api';
 
 const { Title, Text } = Typography;
+
+/**
+ * Exchange options shown in the add-asset modal's multi-select. Mirrors the
+ * exchanges the backend knows about (FRA-78). Order = US-first then CN/HK.
+ */
+const EXCHANGE_OPTIONS = [
+  { label: 'NASDAQ', value: 'NASDAQ' },
+  { label: 'NYSE', value: 'NYSE' },
+  { label: 'AMEX', value: 'AMEX' },
+  { label: 'SSE', value: 'SSE' },
+  { label: 'SZSE', value: 'SZSE' },
+  { label: 'BSE', value: 'BSE' },
+  { label: 'HKEX', value: 'HKEX' },
+];
+
+/** Data-source options used by the add-asset modal's source filter. */
+const SOURCE_OPTIONS = [
+  { label: 'yfinance', value: 'yfinance' },
+  { label: 'akshare', value: 'akshare' },
+  { label: 'tushare', value: 'tushare' },
+];
+
+/** Stable Tag color per data source so the source column is scannable at a glance. */
+function sourceColor(source: string): string {
+  switch (source) {
+    case 'yfinance':
+      return 'blue';
+    case 'akshare':
+      return 'green';
+    case 'tushare':
+      return 'orange';
+    default:
+      return 'default';
+  }
+}
 
 /** Map an ApiError code to a stable i18n key under the `errors` namespace. */
 function errorMessageKey(code: string): string {
@@ -137,7 +174,11 @@ function WatchlistPage() {
   const [searchResults, setSearchResults] = useState<AssetRead[]>([]);
   const [searchDone, setSearchDone] = useState(false);
   const [pickedAssetId, setPickedAssetId] = useState<string | null>(null);
-  const [addForm] = Form.useForm<{ symbol: string; exchange: string }>();
+  const [addForm] = Form.useForm<{
+    keyword: string;
+    exchanges?: string[];
+    source?: string;
+  }>();
 
   function openAddModal() {
     addForm.resetFields();
@@ -150,14 +191,15 @@ function WatchlistPage() {
   async function handleSearch() {
     try {
       const values = await addForm.validateFields();
-      const symbol = values.symbol.trim();
-      if (!symbol) return;
+      const keyword = values.keyword.trim();
+      if (!keyword) return;
       setSearching(true);
       setPickedAssetId(null);
       try {
         const items = await searchAssets({
-          symbol,
-          exchange: values.exchange?.trim() || undefined,
+          keyword,
+          exchanges: values.exchanges,
+          source: values.source,
         });
         setSearchResults(items);
         setSearchDone(true);
@@ -171,7 +213,7 @@ function WatchlistPage() {
         setSearching(false);
       }
     } catch {
-      // required-symbol validation error — antd shows it.
+      // required-keyword validation error — antd shows it.
     }
   }
 
@@ -227,6 +269,12 @@ function WatchlistPage() {
       title: t('watchlist:columns.exchange'),
       dataIndex: 'exchange',
       key: 'exchange',
+    },
+    {
+      title: t('watchlist:columns.source'),
+      dataIndex: 'data_source',
+      key: 'data_source',
+      render: (value: string) => (value ? <Tag color={sourceColor(value)}>{value}</Tag> : null),
     },
     {
       title: t('watchlist:columns.name'),
@@ -361,19 +409,28 @@ function WatchlistPage() {
         >
           <Form form={addForm} layout="vertical" preserve={false}>
             <Form.Item
-              name="symbol"
-              label={t('watchlist:addAsset.form.symbol.label')}
+              name="keyword"
+              label={t('watchlist:addAsset.form.keyword.label')}
               rules={[{ required: true }]}
             >
               <Input
-                placeholder={t('watchlist:addAsset.form.symbol.placeholder')}
+                placeholder={t('watchlist:addAsset.form.keyword.placeholder')}
                 autoComplete="off"
               />
             </Form.Item>
-            <Form.Item name="exchange" label={t('watchlist:addAsset.form.exchange.label')}>
-              <Input
-                placeholder={t('watchlist:addAsset.form.exchange.placeholder')}
-                autoComplete="off"
+            <Form.Item name="exchanges" label={t('watchlist:addAsset.form.exchangeMulti.label')}>
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder={t('watchlist:addAsset.form.exchangeMulti.placeholder')}
+                options={EXCHANGE_OPTIONS}
+              />
+            </Form.Item>
+            <Form.Item name="source" label={t('watchlist:addAsset.form.source.label')}>
+              <Select
+                allowClear
+                placeholder={t('watchlist:addAsset.form.source.placeholder')}
+                options={SOURCE_OPTIONS}
               />
             </Form.Item>
             <Button onClick={run(handleSearch)} loading={searching}>
@@ -393,7 +450,8 @@ function WatchlistPage() {
                   <Space direction="vertical">
                     {searchResults.map((asset) => (
                       <Radio key={asset.asset_id} value={asset.asset_id}>
-                        {asset.symbol} · {asset.exchange} · {asset.name}
+                        {asset.symbol} · {asset.exchange} · {asset.name} ·{' '}
+                        <Tag color={sourceColor(asset.data_source)}>{asset.data_source}</Tag>
                       </Radio>
                     ))}
                   </Space>

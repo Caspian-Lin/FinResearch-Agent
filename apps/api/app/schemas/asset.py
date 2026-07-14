@@ -44,6 +44,10 @@ class AssetRead(BaseModel):
     exchange: str
     asset_type: str
     currency: str
+    # Preferred source + listing lifecycle (FRA-78). Exposed so the frontend can
+    # show the per-asset source and filter/hide delisted instruments.
+    data_source: str
+    list_status: str
     created_at: datetime
 
 
