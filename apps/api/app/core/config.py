@@ -100,6 +100,19 @@ class Settings(BaseSettings):
         alias="LLM_REQUEST_TIMEOUT_SECONDS",
     )
 
+    # Research Planner (FRA-86). Selects the planner adapter; "fixture" is a
+    # deterministic rule-based planner (default, no LLM/network, tests/demo stay
+    # offline and reproducible). "openai" calls an OpenAI-compatible chat
+    # completions endpoint via httpx and requires OPENAI_API_KEY — gated by
+    # this switch so the default path needs no key.
+    planner_provider: str = Field(default="fixture", alias="PLANNER_PROVIDER")
+    planner_max_repairs: int = Field(
+        default=2,
+        alias="PLANNER_MAX_REPAIRS",
+        description="Max rounds of validation-error feedback to the LLM before giving up.",
+    )
+    planner_temperature: float = Field(default=0.0, alias="PLANNER_TEMPERATURE")
+
     # Worker queues
     rq_queue_default: str = Field(default="default", alias="RQ_QUEUE_DEFAULT")
     rq_queue_data: str = Field(default="data_sync", alias="RQ_QUEUE_DATA")
