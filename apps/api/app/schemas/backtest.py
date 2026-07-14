@@ -153,3 +153,63 @@ class BacktestListResponse(BaseModel):
 
     items: list[BacktestRunRead]
     total: int
+
+
+# --- FRA-71: sentiment comparison backtest schemas ---------------------------------
+
+
+class ComparisonCreateRequest(BaseModel):
+    """Payload for ``POST /backtest/comparison``.
+
+    Creates a parent ``BacktestRun`` (``run_kind="sentiment_comparison"``) that
+    runs technical-only and technical+sentiment strategies under identical
+    conditions and persists each as a child run.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    universe: list[uuid.UUID] = Field(min_length=1)
+    start: date
+    end: date
+    benchmark_asset_id: uuid.UUID | None = None
+    initial_capital: float = Field(default=100_000.0, gt=0)
+    cost_bps: float = Field(default=0.0, ge=0)
+    rebalance: str = "daily"
+    price_field: str = "adjusted"
+    model_name: str = Field(
+        min_length=1, description="Sentiment classifier model name (factor source)"
+    )
+    strategy_params: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "technical_factor": "momentum",
+            "window": 63,
+            "top_k": 3,
+            "mode": "overlay",
+            "sentiment_threshold": 0.0,
+            "sentiment_weight": 0.5,
+        }
+    )
+    include_sentiment_only: bool = False
+
+
+class ComparisonEnqueueResponse(BaseModel):
+    """202 response after a comparison run is created + enqueued."""
+
+    run_id: uuid.UUID
+    status: str = "pending"
+
+
+class ComparisonChildRead(BaseModel):
+    """One child run within a comparison (role + run detail + metrics)."""
+
+    role: str
+    run: BacktestRunRead
+    metrics: BacktestMetricsRead | None = None
+
+
+class ComparisonDetailRead(BaseModel):
+    """Full comparison result: parent run + child runs side-by-side."""
+
+    run: BacktestRunRead
+    children: list[ComparisonChildRead] = Field(default_factory=list)

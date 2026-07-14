@@ -55,6 +55,7 @@ RUN_KINDS = (
     "sentiment_sync_news",
     "sentiment_classify",
     "sentiment_factor",
+    "sentiment_comparison",
 )
 
 

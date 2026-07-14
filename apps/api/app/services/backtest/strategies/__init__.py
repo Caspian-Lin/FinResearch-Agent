@@ -11,6 +11,7 @@ from app.services.backtest.strategies.factor import FactorStrategy
 from app.services.backtest.strategies.ma_crossover import MACrossoverStrategy
 from app.services.backtest.strategies.momentum import MomentumStrategy
 from app.services.backtest.strategies.reversal import ReversalStrategy
+from app.services.backtest.strategies.sentiment_tech import SentimentTechStrategy
 
 __all__ = [
     "BuyAndHoldStrategy",
@@ -19,4 +20,5 @@ __all__ = [
     "MACrossoverStrategy",
     "MomentumStrategy",
     "ReversalStrategy",
+    "SentimentTechStrategy",
 ]

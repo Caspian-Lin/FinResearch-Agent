@@ -1,4 +1,4 @@
-"""Sentiment research contracts, services, and behaviour protocols (FRA-65..70)."""
+"""Sentiment research contracts, services, and behaviour protocols (FRA-65..71)."""
 
 from app.services.sentiment.factor import DailySentimentFactor, build_sentiment_summaries
 from app.services.sentiment.protocols import (
