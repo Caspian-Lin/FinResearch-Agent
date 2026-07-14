@@ -12,6 +12,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Mirror tsconfig `paths` so vitest resolves the workspace shared pkg to
+      // its source directly — avoids depending on a built `dist` (CI does not
+      // build @finresearch/shared before running web tests).
+      '@finresearch/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
     },
   },
   test: {
