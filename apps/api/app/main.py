@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.agent import router as agent_router
 from app.api.assets import router as assets_router
 from app.api.auth import router as auth_router
 from app.api.backtest import router as backtest_router
@@ -52,6 +53,7 @@ app.include_router(watchlists_router)
 app.include_router(backtest_router)
 app.include_router(factors_router)
 app.include_router(sentiment_router)
+app.include_router(agent_router)
 
 
 @app.get("/health", tags=["meta"])

@@ -48,6 +48,23 @@ def get_backtest_queue() -> Queue:
     return _backtest_queue
 
 
+_agent_queue: Queue | None = None
+
+
+def get_agent_queue() -> Queue:
+    """Return a singleton RQ Queue bound to the ``agent`` queue (FRA-90).
+
+    Lazy + cached, mirroring :func:`get_backtest_queue`. ``POST /agent/runs``
+    enqueues ``worker.tasks.agent.run_research_job`` here; the worker listens on
+    this queue (see ``worker/main.py``).
+    """
+    global _agent_queue
+    if _agent_queue is None:
+        connection = Redis.from_url(settings.redis_url)
+        _agent_queue = Queue(name=settings.rq_queue_agent, connection=connection)
+    return _agent_queue
+
+
 def map_rq_status(job: Job | None) -> str:
     """Map an RQ job to pending | running | success | success_no_data | failed.
 
