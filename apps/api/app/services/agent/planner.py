@@ -36,7 +36,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import httpx
 from sqlalchemy import select
@@ -62,6 +62,9 @@ from app.schemas.agent import (
     RebalanceFrequency,
     ResearchPlan,
 )
+
+if TYPE_CHECKING:
+    from app.services.llm_config import ResolvedLLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -1032,18 +1035,43 @@ _FACTORIES: dict[str, Callable[[], Planner]] = {
 SUPPORTED_PLANNERS: tuple[str, ...] = tuple(_FACTORIES.keys())
 
 
-def get_planner(key: str | None = None) -> Planner:
+def get_planner(
+    key: str | None = None,
+    *,
+    llm_config: ResolvedLLMConfig | None = None,
+) -> Planner:
     """Return the :class:`Planner` adapter for *key*.
 
-    ``key=None`` falls back to ``settings.planner_provider`` so callers can
-    omit the argument and still respect operator config. Raises
-    :class:`ValueError` for an unknown key.
+    ``key=None`` falls back to ``settings.planner_provider`` (or
+    ``llm_config.provider`` if provided) so callers can omit the argument
+    and still respect operator config. Raises :class:`ValueError` for an
+    unknown key.
+
+    When *llm_config* is provided and the resolved provider is ``"openai"``,
+    the :class:`LLMPlanner` is constructed with the user-specific credentials
+    instead of the global ``settings`` defaults.
     """
-    resolved = key if key is not None else settings.planner_provider
-    factory = _FACTORIES.get(resolved)
-    if factory is None:
+    if llm_config is not None and key is None:
+        resolved = llm_config.provider
+    else:
+        resolved = key if key is not None else settings.planner_provider
+
+    if resolved not in _FACTORIES:
         raise ValueError(f"unsupported planner: {resolved!r}; expected one of {SUPPORTED_PLANNERS}")
-    return factory()
+
+    if resolved == "fixture":
+        return FixturePlanner()
+
+    if resolved == "openai" and llm_config is not None:
+        return LLMPlanner(
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
+            model=llm_config.model,
+            temperature=llm_config.temperature,
+            timeout=llm_config.timeout,
+        )
+
+    return _FACTORIES[resolved]()
 
 
 __all__ = [

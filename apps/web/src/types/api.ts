@@ -842,3 +842,27 @@ export interface AgentCancelResponse {
   status: string;
   message: string;
 }
+
+// ---------------------------------------------------------------------------
+// User LLM Config (FRA-93)
+// ---------------------------------------------------------------------------
+
+/** `GET /settings/llm` response — masked, never includes the API key. */
+export interface LLMConfigRead {
+  provider: string;
+  has_api_key: boolean;
+  api_key_last4: string | null;
+  base_url: string | null;
+  model: string | null;
+  temperature: number | null;
+  updated_at: string | null;
+}
+
+/** `PUT /settings/llm` request body. All fields optional. */
+export interface LLMConfigUpdate {
+  provider?: string;
+  api_key?: string;
+  base_url?: string;
+  model?: string;
+  temperature?: number;
+}
