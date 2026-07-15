@@ -137,8 +137,23 @@ def test_create_asset_rejects_missing_fields(client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_list_assets_filter_and_pagination(client: TestClient) -> None:
-    """Filter by exchange, paginate deterministically, get an accurate total."""
+def test_list_assets_filter_and_pagination(client: TestClient, db_session: Session) -> None:
+    """Filter by exchange, paginate deterministically, get an accurate total.
+
+    The total assertion is baseline-relative so the test is robust against
+    pre-existing rows the host DB may hold (real synced NASDAQ stocks) — the
+    FRA-61 pitfall. Pagination is exercised on a set scoped to this suite's
+    seed rows (``keyword``) so the items/ordering assertions stay deterministic
+    regardless of host-DB state.
+    """
+    # Baseline: how many NASDAQ rows does the host DB already hold? Asserting
+    # ``total == baseline + 3`` avoids depending on a pristine DB.
+    nasdaq_before = int(
+        db_session.execute(
+            text("SELECT count(*) FROM assets WHERE exchange = 'NASDAQ'")
+        ).scalar_one()
+    )
+
     # Seed three FRA7TEST rows on NASDAQ and one on NYSE.
     for sym, exch in [
         ("FRA7TEST-LIST-A", "NASDAQ"),
@@ -158,20 +173,29 @@ def test_list_assets_filter_and_pagination(client: TestClient) -> None:
         )
         assert resp.status_code == 201, resp.text
 
-    # Filter by exchange=NASDAQ -> 3 NASDAQ rows, regardless of case.
+    # Filter by exchange=nasdaq (lowercase) -> case-insensitive match; the
+    # returned total is the host baseline plus our three seeded rows.
     nas = client.get("/assets", params={"exchange": "nasdaq"})
     assert nas.status_code == 200
     nas_page = nas.json()
-    assert nas_page["total"] == 3
-    assert {it["symbol"] for it in nas_page["items"]} == {
+    assert nas_page["total"] == nasdaq_before + 3
+    # Every returned row honors the exchange filter (normalized to NASDAQ).
+    assert all(it["exchange"] == "NASDAQ" for it in nas_page["items"])
+    # Ordering must be stable/ascending by symbol across the full result set.
+    assert [it["symbol"] for it in nas_page["items"]] == sorted(
+        [it["symbol"] for it in nas_page["items"]]
+    )
+    # The three seeded NASDAQ rows are matched by the filter — scoped by keyword
+    # so the assertion doesn't depend on which page default limit=50 returned.
+    scoped = client.get("/assets", params={"exchange": "nasdaq", "keyword": "FRA7TEST-LIST"})
+    assert scoped.status_code == 200
+    scoped_page = scoped.json()
+    assert scoped_page["total"] == 3
+    assert {it["symbol"] for it in scoped_page["items"]} == {
         "FRA7TEST-LIST-A",
         "FRA7TEST-LIST-B",
         "FRA7TEST-LIST-C",
     }
-    # Ordering must be stable/ascending by symbol.
-    assert [it["symbol"] for it in nas_page["items"]] == sorted(
-        [it["symbol"] for it in nas_page["items"]]
-    )
 
     # Filter by exact symbol.
     sym_resp = client.get("/assets", params={"symbol": "fra7test-list-d"})
@@ -180,15 +204,22 @@ def test_list_assets_filter_and_pagination(client: TestClient) -> None:
     assert sym_page["total"] == 1
     assert sym_page["items"][0]["exchange"] == "NYSE"
 
-    # Pagination: limit=2 offset=0 on the NASDAQ set returns 2, total still 3.
-    page1 = client.get("/assets", params={"exchange": "NASDAQ", "limit": 2, "offset": 0})
+    # Pagination on the seeded NASDAQ set, scoped by keyword so it is
+    # deterministic regardless of how many real NASDAQ rows the host DB holds.
+    page1 = client.get(
+        "/assets",
+        params={"exchange": "NASDAQ", "keyword": "FRA7TEST-LIST", "limit": 2, "offset": 0},
+    )
     assert page1.status_code == 200
     p1 = page1.json()
     assert p1["total"] == 3
     assert len(p1["items"]) == 2
     assert [it["symbol"] for it in p1["items"]] == ["FRA7TEST-LIST-A", "FRA7TEST-LIST-B"]
 
-    page2 = client.get("/assets", params={"exchange": "NASDAQ", "limit": 2, "offset": 2})
+    page2 = client.get(
+        "/assets",
+        params={"exchange": "NASDAQ", "keyword": "FRA7TEST-LIST", "limit": 2, "offset": 2},
+    )
     assert page2.status_code == 200
     p2 = page2.json()
     assert p2["total"] == 3
