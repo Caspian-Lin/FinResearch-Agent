@@ -632,3 +632,329 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Agent Research page (FRA-91) ──────────────────────────────────────── */
+
+.agent-page-disclaimer {
+  margin-bottom: 16px;
+}
+
+.agent-back-btn {
+  margin-bottom: 8px;
+  padding-left: 0;
+}
+
+.agent-alert {
+  margin-bottom: 12px;
+}
+
+.agent-validation-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* QuestionComposer */
+.agent-composer {
+  max-width: 720px;
+}
+
+.agent-composer-header {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.agent-composer-hint {
+  font-size: 12px;
+}
+
+.agent-composer-actions {
+  margin-top: 8px;
+}
+
+.agent-examples {
+  margin-top: 16px;
+}
+
+.agent-examples-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.agent-examples-list {
+  width: 100%;
+}
+
+.agent-example-btn {
+  text-align: left;
+  white-space: normal;
+  height: auto;
+  padding: 6px 12px;
+  line-height: 1.4;
+}
+
+/* PlanReview */
+.agent-plan-review {
+  margin-bottom: 16px;
+}
+
+.agent-plan-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.agent-plan-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-plan-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agent-plan-field-label {
+  font-size: 13px;
+}
+
+.agent-plan-subfields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.agent-plan-sublabel {
+  font-size: 12px;
+}
+
+.agent-plan-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.agent-plan-hash {
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.agent-plan-approve {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* RunTimeline */
+.agent-run-timeline {
+  margin-bottom: 16px;
+}
+
+.agent-run-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.agent-steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.agent-trace-title {
+  font-size: 14px;
+}
+
+.agent-step {
+  border: 1px solid var(--fra-border, #e8e8e8);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.agent-step-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.agent-step-kind {
+  font-size: 11px;
+}
+
+.agent-step-tools {
+  margin-top: 8px;
+}
+
+.agent-step-tools-label {
+  font-size: 12px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.agent-tool-call {
+  border-left: 2px solid var(--fra-border, #e8e8e8);
+  padding-left: 12px;
+  margin-top: 8px;
+}
+
+.agent-tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-tool-duration {
+  font-size: 11px;
+}
+
+.agent-tool-collapse {
+  margin-top: 4px;
+}
+
+.agent-tool-evidence {
+  margin-top: 4px;
+}
+
+.agent-tool-evidence-label {
+  font-size: 11px;
+}
+
+.agent-trace-json {
+  font-size: 12px;
+  max-height: 300px;
+  overflow: auto;
+  background: var(--fra-surface-2, #f5f5f5);
+  padding: 8px;
+  border-radius: 4px;
+  margin: 0;
+}
+
+/* RunResult */
+.agent-run-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.agent-result-card {
+  margin-bottom: 8px;
+}
+
+.agent-result-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.agent-observation {
+  width: 100%;
+}
+
+.agent-observation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.agent-observation-text {
+  margin: 0;
+}
+
+.agent-observation-citation {
+  margin-top: 4px;
+}
+
+.agent-risk-tag {
+  margin-left: 8px;
+}
+
+.agent-risk-detail {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+}
+
+.agent-result-disclaimer {
+  margin-top: 8px;
+}
+
+/* AgentHistorySidebar */
+.agent-history-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.agent-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.agent-history-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.agent-history-empty {
+  padding: 24px 8px;
+}
+
+.agent-history-item {
+  cursor: pointer;
+  padding: 8px 12px !important;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  transition: background-color 0.15s;
+}
+
+.agent-history-item:hover {
+  background-color: var(--fra-surface-2, #f5f5f5);
+}
+
+.agent-history-item-active {
+  background-color: var(--fra-surface-3, #e6f4ff);
+}
+
+.agent-history-item-content {
+  width: 100%;
+}
+
+.agent-history-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.agent-history-status {
+  font-size: 11px;
+}
+
+.agent-history-date {
+  font-size: 11px;
+}
+
+.agent-history-question {
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.agent-result-section {
+  margin-top: 16px;
+}

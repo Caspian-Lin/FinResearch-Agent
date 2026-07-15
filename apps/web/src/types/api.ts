@@ -735,3 +735,110 @@ export interface FactorJobStatusResponse {
   result: Record<string, unknown> | null;
   config_snapshot: Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------------
+// Agent Research (FRA-90 API + FRA-91 UI)
+// ---------------------------------------------------------------------------
+// Mirrors the backend `app/schemas/agent_run.py` wire-level types 1:1.
+// The canonical plan contract lives in `@finresearch/shared` (ResearchPlanT);
+// the API surface below consumes it for type safety.
+
+import type { ResearchPlanT } from '@finresearch/shared';
+
+/** `POST /agent/plans` response — plan draft (no side effects). */
+export interface AgentPlanResponse {
+  research_question: string;
+  plan: ResearchPlanT | null;
+  plan_hash: string | null;
+  clarification_needed: string | null;
+  validation_errors: string[];
+  planner_provider: string | null;
+  planner_model: string | null;
+}
+
+/** `POST /agent/runs` request body. */
+export interface AgentRunCreateRequest {
+  plan: ResearchPlanT;
+  plan_hash: string;
+}
+
+/** `POST /agent/runs` response — 202 enqueued. */
+export interface AgentRunEnqueuedResponse {
+  run_id: string;
+  status: string;
+  plan_hash: string;
+}
+
+/** Compact run summary for list responses. */
+export interface AgentRunSummary {
+  id: string;
+  research_question: string;
+  status: string;
+  plan_hash: string;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_summary: string | null;
+  current_step: string | null;
+}
+
+/** Full run detail with plan + synthesis. */
+export interface AgentRunDetail extends AgentRunSummary {
+  plan: ResearchPlanT | null;
+  synthesis: Record<string, unknown> | null;
+  step_count: number;
+  completed_steps: number;
+}
+
+/** Paginated list of a user's runs. */
+export interface AgentRunListResponse {
+  runs: AgentRunSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** One sanitized tool call in the trace. */
+export interface ToolCallTrace {
+  id: string;
+  tool_name: string;
+  status: string;
+  args: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  error: string | null;
+  error_code: string | null;
+  evidence_refs: Record<string, unknown>[] | null;
+  duration_ms: number | null;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+/** One step in the trace, with nested tool calls. */
+export interface StepTrace {
+  id: string;
+  sequence: number;
+  agent_role: string;
+  kind: string;
+  status: string;
+  input_summary: Record<string, unknown> | null;
+  output_summary: Record<string, unknown> | null;
+  error: string | null;
+  duration_ms: number | null;
+  started_at: string | null;
+  finished_at: string | null;
+  tool_calls: ToolCallTrace[];
+}
+
+/** Full trace for a run — ordered steps with nested tool calls. */
+export interface AgentTraceResponse {
+  run_id: string;
+  run_status: string;
+  steps: StepTrace[];
+}
+
+/** `POST /agent/runs/{id}/cancel` response. */
+export interface AgentCancelResponse {
+  run_id: string;
+  status: string;
+  message: string;
+}

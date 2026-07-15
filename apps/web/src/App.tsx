@@ -97,6 +97,7 @@ function AppContent() {
     { key: '/backtest/history', label: t('common:nav.backtestHistory') },
     { key: '/factor-research', label: t('common:nav.factorResearch') },
     { key: '/sentiment-research', label: t('common:nav.sentimentResearch') },
+    { key: '/agent', label: t('agent:nav.agentResearch') },
   ];
   const selectedNavKey = location.pathname.startsWith('/backtest/history')
     ? '/backtest/history'
