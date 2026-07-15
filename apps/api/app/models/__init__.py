@@ -18,6 +18,7 @@ from app.models.factor import FactorValue
 from app.models.news import NewsItem, SentimentScore
 from app.models.ohlcv import Ohlcv
 from app.models.user import User
+from app.models.user_llm_config import UserLLMConfig
 from app.models.watchlist import Watchlist, WatchlistItem
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "SentimentScore",
     "Trade",
     "User",
+    "UserLLMConfig",
     "Watchlist",
     "WatchlistItem",
 ]

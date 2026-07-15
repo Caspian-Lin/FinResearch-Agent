@@ -52,6 +52,7 @@ from app.services.agent.repository import (
     AgentRunRepository,
     compute_plan_hash,
 )
+from app.services.llm_config import resolve_llm_config
 from app.services.sync import get_agent_queue
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -87,7 +88,7 @@ def create_plan(
     No run is created — the caller submits the returned plan + ``plan_hash`` to
     ``POST /agent/runs`` to approve and enqueue.
     """
-    planner = get_planner()
+    planner = get_planner(llm_config=resolve_llm_config(current_user.id, db))
     resolver = DbAssetResolver(db)
     result = planner.plan(payload.hypothesis, resolver=resolver)
 

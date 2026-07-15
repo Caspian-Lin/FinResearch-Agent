@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     jwt_expire_minutes: int = Field(default=1440, alias="JWT_EXPIRE_MINUTES")
 
+    # Encryption key for user-stored secrets (Fernet token). Used to encrypt
+    # per-user API keys in the DB (FRA-93). Generate with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    secret_key: str = Field(default="", alias="SECRET_KEY")
+
     # Initial admin
     initial_admin_email: str = Field(
         default="admin@finresearch.local",

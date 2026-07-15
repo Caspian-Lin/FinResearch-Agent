@@ -27,7 +27,7 @@ import json
 import logging
 import re
 from collections.abc import Callable, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from tenacity import Retrying
@@ -36,6 +36,9 @@ from app.core.config import settings
 from app.services.datasources.base import build_default_retryer
 from app.services.sentiment.protocols import SentimentClassifier
 from app.services.sentiment.types import NewsItem, SentimentLabel, SentimentScore
+
+if TYPE_CHECKING:
+    from app.services.llm_config import ResolvedLLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -341,19 +344,44 @@ _FACTORIES: dict[str, Callable[[], SentimentClassifier]] = {
 SUPPORTED_CLASSIFIERS: tuple[str, ...] = tuple(_FACTORIES.keys())
 
 
-def get_sentiment_classifier(key: str | None = None) -> SentimentClassifier:
+def get_sentiment_classifier(
+    key: str | None = None,
+    *,
+    llm_config: ResolvedLLMConfig | None = None,
+) -> SentimentClassifier:
     """Return the :class:`SentimentClassifier` adapter for ``key``.
 
-    ``key=None`` falls back to ``settings.sentiment_classifier`` so callers can
-    omit the argument and still respect operator config. Raises
-    :class:`ValueError` for an unknown key so the caller (worker / API) can
-    surface it as an input/config error rather than a silent miss.
+    ``key=None`` falls back to ``settings.sentiment_classifier`` (or
+    ``llm_config.provider`` if provided) so callers can omit the argument
+    and still respect operator config. Raises :class:`ValueError` for an
+    unknown key so the caller (worker / API) can surface it as an
+    input/config error rather than a silent miss.
+
+    When *llm_config* is provided and the resolved classifier is ``"openai"``,
+    the :class:`LlmSentimentClassifier` is constructed with user-specific
+    credentials instead of the global ``settings`` defaults.
     """
-    resolved = key if key is not None else settings.sentiment_classifier
-    factory = _FACTORIES.get(resolved)
-    if factory is None:
+    if llm_config is not None and key is None:
+        resolved = llm_config.provider
+    else:
+        resolved = key if key is not None else settings.sentiment_classifier
+
+    if resolved not in _FACTORIES:
         raise ValueError(
             f"unsupported sentiment classifier: {resolved!r}; "
             f"expected one of {SUPPORTED_CLASSIFIERS}"
         )
-    return factory()
+
+    if resolved == "fixture":
+        return FixtureSentimentClassifier()
+
+    if resolved == "openai" and llm_config is not None:
+        return LlmSentimentClassifier(
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
+            model=llm_config.model,
+            temperature=llm_config.temperature,
+            timeout=llm_config.timeout,
+        )
+
+    return _FACTORIES[resolved]()
