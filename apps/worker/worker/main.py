@@ -46,6 +46,7 @@ def main() -> int:
         os.getenv("RQ_QUEUE_DEFAULT", "default"),
         os.getenv("RQ_QUEUE_DATA", "data_sync"),
         os.getenv("RQ_QUEUE_BACKTEST", "backtest"),
+        os.getenv("RQ_QUEUE_AGENT", "agent"),
     ]
 
     logger.info("Starting RQ worker on queues=%s redis=%s", queues, redis_url)

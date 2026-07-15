@@ -15,7 +15,9 @@ here has already passed Pydantic/JSON serialization.
 
 from __future__ import annotations
 
+import math
 import re
+from datetime import date, datetime
 from typing import Any
 
 #: Placeholder substituted for any redacted secret value.
@@ -62,7 +64,15 @@ def sanitize(value: Any) -> Any:
         return [sanitize(item) for item in value]
     if isinstance(value, str):
         return _sanitize_str(value)
-    # int / float / bool / None — immutable, return as-is.
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    # int / bool / None — immutable, return as-is.
+    if isinstance(value, float):
+        # NaN / Infinity are valid in Python but NOT in JSON / PostgreSQL JSONB.
+        # Replace with None so persistence never raises DataError.
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
     return value
 
 

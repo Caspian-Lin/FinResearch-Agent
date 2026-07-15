@@ -117,6 +117,30 @@ class Settings(BaseSettings):
     rq_queue_default: str = Field(default="default", alias="RQ_QUEUE_DEFAULT")
     rq_queue_data: str = Field(default="data_sync", alias="RQ_QUEUE_DATA")
     rq_queue_backtest: str = Field(default="backtest", alias="RQ_QUEUE_BACKTEST")
+    rq_queue_agent: str = Field(default="agent", alias="RQ_QUEUE_AGENT")
+
+    # Agent Orchestrator bounds (FRA-90). The orchestrator enforces these to
+    # prevent runaway loops, infinite retries, and stale worker picks.
+    agent_max_steps: int = Field(
+        default=20,
+        alias="AGENT_MAX_STEPS",
+        description="Maximum number of steps per research run before forced failure.",
+    )
+    agent_run_deadline_seconds: int = Field(
+        default=600,
+        alias="AGENT_RUN_DEADLINE_SECONDS",
+        description="Wall-clock deadline for a single run; the orchestrator aborts past this.",
+    )
+    agent_tool_timeout_seconds: int = Field(
+        default=120,
+        alias="AGENT_TOOL_TIMEOUT_SECONDS",
+        description="Per-tool timeout cap; individual tools may declare shorter limits.",
+    )
+    agent_max_retries: int = Field(
+        default=2,
+        alias="AGENT_MAX_RETRIES",
+        description="Max retries for retriable tool errors (provider/timeout/internal).",
+    )
 
     # Sentiment / News (FRA-67). The news provider key selects an adapter from
     # the sentiment/providers registry; "fixture" ships sample data so tests and
