@@ -193,6 +193,40 @@ Agent 的评估围绕**契约一致性**与**可复现性**,而非收益预测�
 非目标:不评估「策略是否跑赢基准」,不把回测收益作为 Agent 质量指标 —— 任何
 「看起来太好」的结果应先怀疑是 look-ahead / 过拟合 bug(见 `AGENTS.md` 域规则)。
 
+## Risk Agent — 确定性完整性检查 (FRA-88)
+
+Risk Agent 是 Report Agent 前的**硬门禁**。它完全确定性(无 LLM):读取
+validated `ResearchPlan` + tool evidence,输出 `RiskAssessment`(pass / warn /
+fail)。fail 时 Report Agent 只能生成「研究未通过完整性检查」的受限摘要。
+
+### 规则目录
+
+| Rule ID | 严重性 | 检查内容 | Evidence |
+|---|---|---|---|
+| R001_benchmark_exists | FAIL | validated plan 必须有 resolved benchmark | plan.benchmark.asset_id |
+| R002_cost_sensitivity | FAIL | 必须有交易成本敏感性 bands | plan.validation.cost_sensitivity_bps |
+| R003_baselines_present | FAIL | 至少一个 validation baseline | plan.validation.baselines |
+| R004_evidence_complete | FAIL | 无 tool 执行错误 | tool_results.errors |
+| R005_gross_net_metrics | FAIL | 回测必须有 gross + net metrics | backtest_result.metrics |
+| R006_survivorship | WARN | 幸存者偏差应文档化 | plan.risk_checks |
+| R007_sample_length | WARN | 回测 ≥ 252 数据点(~1年) | backtest_result.equity_points |
+| R008_data_coverage | WARN | 数据覆盖率充足(无缺口) | coverage.missing |
+| R009_sentiment_provenance | FAIL | sentiment factor 的 provenance 不能 pending | plan.sentiment_provenance |
+| R010_max_drawdown | WARN | 最大回撤超过 -40% 需审查 | backtest_result.metrics.net_max_drawdown |
+| R011_single_source | WARN | 单一数据源无交叉验证 | plan.data_source |
+| R012_time_based_split | WARN | 建议声明 time-based split | plan.assumptions |
+
+### Defense in depth
+
+R001 / R002 / R009 与 FRA-84 schema 校验重叠 — schema 是第一道防线,Risk Agent
+是第二道。两者独立因为 plan 可能在 validation 后被工具篡改(如 benchmark
+asset_id 被清空、sentiment provenance 被设为 pending)。
+
+### 实现
+
+[`apps/api/app/services/agent/risk.py`](../apps/api/app/services/agent/risk.py) —
+`assess_risk(plan, evidence) -> RiskAssessment`。纯函数,确定性,可快照测试。
+
 ## Ref
 
 - [`apps/api/app/schemas/agent.py`](../apps/api/app/schemas/agent.py) — Pydantic v2 契约
