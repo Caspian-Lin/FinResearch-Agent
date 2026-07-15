@@ -8,6 +8,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Resolve the workspace shared package to its source directly — same as
+      // vitest.config.ts and tsconfig.json paths. Avoids depending on a built
+      // `dist` (the shared package is not built before `vite dev`).
+      '@finresearch/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
     },
   },
   server: {
