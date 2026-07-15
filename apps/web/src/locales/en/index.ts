@@ -10,6 +10,7 @@ import errors from './errors';
 import backtest from './backtest';
 import factor from './factor';
 import sentiment from './sentiment';
+import agent from './agent';
 
 export const en = {
   common,
@@ -20,6 +21,7 @@ export const en = {
   backtest,
   factor,
   sentiment,
+  agent,
 } as const;
 
 export default en;
